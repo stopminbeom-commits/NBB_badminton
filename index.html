@@ -6,67 +6,24 @@
   <meta name="description" content="복식 배드민턴 모임의 공정한 라운드별 대진표를 만드는 도구">
   <title>콕매치 | 배드민턴 대진표</title>
   <link rel="stylesheet" href="styles.css">
+  <style>.player-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.nickname-field{display:flex;flex-direction:column;gap:5px;color:#687386;font-size:12px;font-weight:700}.nickname-field input{padding:10px}@media(max-width:650px){.player-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}</style>
 </head>
 <body>
   <header class="site-header"><div class="wrap brand"><span class="brand-mark">🏸</span><span>콕매치</span><small>공정한 복식 대진표</small></div></header>
   <main class="wrap">
-    <section class="hero">
-      <p class="eyebrow">BADMINTON DOUBLES SCHEDULER</p>
-      <h1>오늘의 대진, 공정하게<br>한 번에 만들어요.</h1>
-      <p>출전·휴식 균형, 연속 출전, 파트너와 상대 순환을 함께 고려합니다.</p>
-    </section>
-
+    <section class="hero"><p class="eyebrow">BADMINTON DOUBLES SCHEDULER</p><h1>오늘의 대진, 공정하게<br>한 번에 만들어요.</h1><p>출전·휴식 균형, 연속 출전, 파트너와 상대 순환을 함께 고려합니다.</p></section>
     <section class="panel no-print" aria-labelledby="setup-title">
       <div class="panel-title"><h2 id="setup-title">모임 설정</h2><span>필수 항목을 입력해 주세요</span></div>
       <div class="form-grid">
-        <label class="field field-wide">모임 이름 <input id="eventName" type="text" value="오늘의 배드민턴" maxlength="50"></label>
-        <label class="field field-wide">참가자 닉네임 <span class="hint">줄바꿈 또는 쉼표로 구분</span>
-          <textarea id="players" rows="8" spellcheck="false" placeholder="예: 콕콕이, 스매시왕, 민턴러">콕콩
-스매시
-하이클리어
-드롭샷
-셔틀콕
-라켓맨
-네트킬
-백핸드</textarea>
-        </label>
+        <label class="field">참가 인원 <span id="playerCountHint" class="hint">4~40명</span><input id="playerCount" type="number" min="4" max="40" value="8"></label>
         <label class="field">가용 코트 수 <input id="courts" type="number" min="1" max="20" value="1"></label>
-        <label class="field">진행 라운드 <span class="hint">비워두면 8회</span><input id="rounds" type="number" min="1" max="60" placeholder="8"></label>
+        <label class="field field-wide">진행 라운드 <span id="roundRecommendation" class="hint"></span><input id="rounds" type="number" min="1" max="60"></label>
+        <div class="field field-wide"><span>참가자 닉네임</span><span class="hint">참가 인원을 바꾸면 입력칸이 자동으로 조정됩니다.</span><div id="playerFields" class="player-fields"></div></div>
       </div>
-      <fieldset class="constraints"><legend>적용 조건</legend>
-        <label><input id="equalPlay" type="checkbox" checked> 출전·휴식 횟수 균등 배분</label>
-        <label><input id="noThree" type="checkbox" checked> 3라운드 연속 출전 피하기</label>
-        <label><input id="rotatePartners" type="checkbox" checked> 파트너·상대 중복 최소화</label>
-      </fieldset>
-      <div id="nicknameNotice" class="notice hidden" role="status"></div>
-      <button id="generate" class="primary" type="button">대진표 만들기 <span aria-hidden="true">→</span></button>
+      <fieldset class="constraints"><legend>적용 조건</legend><label><input id="equalPlay" type="checkbox" checked> 출전·휴식 횟수 균등 배분</label><label><input id="noThree" type="checkbox" checked> 3라운드 연속 출전 피하기</label><label><input id="rotatePartners" type="checkbox" checked> 파트너·상대 중복 최소화</label></fieldset>
+      <div id="nicknameNotice" class="notice hidden" role="status"></div><button id="generate" class="primary" type="button">대진표 만들기 <span aria-hidden="true">→</span></button>
     </section>
-
-    <section id="results" class="results hidden" aria-live="polite">
-      <div class="schedule-head">
-        <div><p class="eyebrow">MATCH PLAN</p><h2 id="scheduleTitle">배드민턴 경기 대진표</h2><p id="overview" class="overview"></p></div>
-        <div class="actions no-print">
-          <button class="secondary" id="copyBtn" type="button">텍스트 복사</button>
-          <button class="secondary" id="csvBtn" type="button">CSV 저장</button>
-          <button class="secondary" id="shareBtn" type="button">공유</button>
-          <button class="primary compact" id="printBtn" type="button">인쇄 / PDF</button>
-        </div>
-      </div>
-      <div id="constraintReport"></div>
-      <div class="table-shell">
-        <table id="scheduleTable">
-          <thead><tr><th>라운드</th><th>코트</th><th>팀 A</th><th></th><th>팀 B</th><th>휴식 / 대기</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <section class="verification">
-        <h3>개인별 출전 데이터 검증</h3>
-        <div class="table-shell"><table id="verifyTable"><thead><tr><th>닉네임</th><th>출전</th><th>휴식</th><th>최장 연속 출전</th><th>파트너 수</th><th>상태</th></tr></thead><tbody></tbody></table></div>
-      </section>
-      <p class="footnote">현장에서는 라운드 종료 후 표의 다음 행으로 진행해 주세요. 닉네임 누락·오타는 시작 전 다시 확인해 주세요.</p>
-    </section>
-  </main>
-  <footer class="wrap no-print">콕매치 · 입력한 명단은 브라우저 밖으로 전송되지 않습니다.</footer>
-  <script src="app.js"></script>
+    <section id="results" class="results hidden" aria-live="polite"><div class="schedule-head"><div><p class="eyebrow">MATCH PLAN</p><h2 id="scheduleTitle">배드민턴 경기 대진표</h2><p id="overview" class="overview"></p></div><div class="actions no-print"><button class="secondary" id="copyBtn" type="button">텍스트 복사</button><button class="secondary" id="csvBtn" type="button">CSV 저장</button><button class="secondary" id="shareBtn" type="button">공유</button><button class="primary compact" id="printBtn" type="button">인쇄 / PDF</button></div></div><div id="constraintReport"></div><div class="table-shell"><table id="scheduleTable"><thead><tr><th>라운드</th><th>코트</th><th>팀 A</th><th></th><th>팀 B</th><th>휴식 / 대기</th></tr></thead><tbody></tbody></table></div><section class="verification"><h3>개인별 출전 데이터 검증</h3><div class="table-shell"><table id="verifyTable"><thead><tr><th>닉네임</th><th>출전</th><th>휴식</th><th>최장 연속 출전</th><th>파트너 수</th><th>상태</th></tr></thead><tbody></tbody></table></div></section><p class="footnote">현장에서는 라운드 종료 후 표의 다음 행으로 진행해 주세요. 닉네임 누락·오타는 시작 전 다시 확인해 주세요.</p></section>
+  </main><footer class="wrap no-print">콕매치 · 입력한 명단은 브라우저 밖으로 전송되지 않습니다.</footer><script src="app.js"></script>
 </body>
 </html>
