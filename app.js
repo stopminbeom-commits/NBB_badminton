@@ -1,1 +1,236 @@
-(()=>{'use strict';const $=x=>document.getElementById(x),seed=['콕콩','스매시','하이클리어','드롭샷','셔틀콕','라켓맨','네트킬','백핸드'],S={d:null,s:null},NL=String.fromCharCode(10);document.head.append(Object.assign(document.createElement('style'),{textContent:'.nickname-field{display:grid!important;grid-template-columns:auto 1fr!important;align-items:center;gap:10px!important}.player-number{display:grid;place-items:center;min-width:58px;padding:7px 8px;border-radius:9px;background:#e8f7ef;color:#047857;font-size:11px;font-weight:900}.nickname-input-wrap{display:grid;gap:2px;min-width:0}.nickname-input-label{color:#94a3b8;font-size:10px;font-weight:900}.nickname-field input{min-width:0;padding:9px 10px!important;border:1px solid #dbe5ed!important;border-radius:9px!important;background:#fff!important}.capture-image .actions{display:none!important}'}));const P=()=>Math.max(4,Math.min(40,parseInt($('playerCount').value)||4)),C=()=>Math.max(1,Math.min(4,parseInt($('courts').value)||1));function rec(){let p=P(),c=C(),g=Math.min(c,Math.floor(p/4)),r=Math.min(60,Math.ceil(p*(p-1)/(g*4)));$('courts').value=c;$('rounds').value=r;$('playerCountHint').textContent='총 '+p+'명';$('roundRecommendation').textContent='모든 참가자와 1회 파트너 기준 추천 '+r+'라운드'}function fields(){let old=[...document.querySelectorAll('[data-player-name]')].map(x=>x.value),box=$('playerFields');box.replaceChildren();for(let i=0;i<P();i++){let row=document.createElement('label'),tag=document.createElement('span'),wrap=document.createElement('span'),cap=document.createElement('span'),inp=document.createElement('input');row.className='nickname-field';tag.className='player-number';tag.textContent='참가자 '+(i+1);wrap.className='nickname-input-wrap';cap.className='nickname-input-label';cap.textContent='이름';inp.type='text';inp.maxLength=24;inp.placeholder='이름 입력';inp.dataset.playerName='true';inp.value=old[i]===undefined?(seed[i]||''):old[i];wrap.append(cap,inp);row.append(tag,wrap);box.append(row)}rec()}const names=()=>[...document.querySelectorAll('[data-player-name]')].map(x=>x.value.trim());function streak(h,p){let a=0,m=0;for(let r of h){a=r.includes(p)?a+1:0;m=Math.max(m,a)}return m}const key=(a,b)=>a<b?a+'|'+b:b+'|'+a;function make(list,courts,rounds,no3){let games=Math.min(courts,Math.floor(list.length/4)),slots=games*4,plays=new Map(list.map(x=>[x,0])),hist=[],pairs=new Map(),out=[];for(let r=0;r<rounds;r++){let order=[...list].sort((a,b)=>{let x=no3&&streak(hist,a)>1?1:0,y=no3&&streak(hist,b)>1?1:0;return x-y||plays.get(a)-plays.get(b)||Math.random()-.5}),safe=order.filter(x=>!(no3&&streak(hist,x)>1)),used=(safe.length>=slots?safe:order).slice(0,slots),matches=[];for(let c=0;c<games;c++){let f=used.slice(c*4,c*4+4),z=(r+c)%4;f=f.slice(z).concat(f.slice(0,z));let a=[f[0],f[1]],b=[f[2],f[3]];matches.push({a:a,b:b});for(let t of[a,b]){let k=key(t[0],t[1]);pairs.set(k,(pairs.get(k)||0)+1)}}used.forEach(x=>plays.set(x,plays.get(x)+1));hist.push(used);out.push({m:matches,rest:list.filter(x=>!used.includes(x))})}return{r:out,p:plays,h:hist,k:pairs}}function render(d,list,s){let used=d.r[0].m.length,avg=(s.rounds*used*4/list.length).toFixed(1).replace('.0','');$('scheduleTitle').textContent='🏸 배드민턴 경기 대진표';$('overview').textContent='참석 '+list.length+'명 · '+s.courts+'코트 중 '+used+'코트 사용 · 복식 · '+s.rounds+'라운드 · 1인 평균 '+avg+'게임';let body=$('scheduleTable').querySelector('tbody');body.replaceChildren();d.r.forEach((r,i)=>r.m.forEach((m,j)=>{let tr=document.createElement('tr'),cs=[['라운드 '+(i+1),'round'],[(j+1)+'코트','court'],[m.a.join(', '),'team-a'],['vs','vs'],[m.b.join(', '),'team-b'],[j?'':(r.rest.join(', ')||'대기자 없음'),'rest']];cs.forEach(x=>{let td=document.createElement('td');td.textContent=x[0];td.className=x[1];tr.append(td)});body.append(tr)}));let v=$('verifyTable').querySelector('tbody');v.replaceChildren();let vals=list.map(x=>d.p.get(x)),equal=Math.max(...vals)-Math.min(...vals)<=1;list.forEach(x=>{let st=streak(d.h,x),pc=[...d.k.keys()].filter(k=>k.split('|').includes(x)).length,tr=document.createElement('tr'),cs=[[x,''],[d.p.get(x)+'회',''],[(s.rounds-d.p.get(x))+'회',''],[st+'회',st>2?'status-alert':''],[pc+'명',''],[st>2?'3연속 발생':'정상',st>2?'status-alert':'status-ok']];cs.forEach(a=>{let td=document.createElement('td');td.textContent=a[0];td.className=a[1];tr.append(td)});v.append(tr)});let warn=s.no3&&list.length<=used*4?'모든 참가자가 매 라운드 출전하므로 3연속 출전을 피할 수 없습니다.':(s.no3&&list.some(x=>streak(d.h,x)>2)?'인원·라운드 조건상 일부 3연속 출전이 발생했습니다.':'');let rep=$('constraintReport');rep.className='report'+(warn?' warning':'');rep.textContent=warn?'확인 필요: '+warn:(!equal&&s.equal?'확인 필요: 출전 횟수 차이가 1회를 초과했습니다.':'검증 완료: 출전 횟수와 연속 출전 조건을 확인했습니다.');S.d=d;S.s=s;$('results').classList.remove('hidden');$('results').scrollIntoView({behavior:'smooth',block:'start'})}function generate(){let list=names(),n=$('nicknameNotice'),b=list.findIndex(x=>!x),du=list.filter((x,i)=>list.findIndex(y=>y.toLowerCase()===x.toLowerCase())!==i);if(b>=0||du.length){n.className='notice error';n.textContent=du.length?'중복 닉네임: '+[...new Set(du)].join(', ')+' — 철자를 수정해 주세요.':'참가자 '+(b+1)+'의 닉네임을 입력해 주세요.';return}let rounds=parseInt($('rounds').value);if(!rounds||rounds<1){n.className='notice error';n.textContent='라운드 수를 올바르게 입력해 주세요.';return}n.className='notice hidden';let s={courts:C(),rounds:rounds,equal:$('equalPlay').checked,no3:$('noThree').checked};$('courts').value=s.courts;render(make(list,s.courts,s.rounds,s.no3),list,s)}function plain(){if(!S.d)return'';let o='🏸 배드민턴 경기 대진표'+NL+'참석 '+S.d.p.size+'명 · '+S.s.courts+'코트 · '+S.s.rounds+'라운드'+NL+NL;S.d.r.forEach((r,i)=>{o+='[라운드 '+(i+1)+']'+NL;r.m.forEach((m,j)=>o+=(j+1)+'코트  '+m.a.join(', ')+' vs '+m.b.join(', ')+NL);o+='휴식: '+(r.rest.join(', ')||'없음')+NL+NL});return o}function csv(){if(!S.d)return;let o='라운드,코트,팀 A,팀 B,휴식/대기'+NL;S.d.r.forEach((r,i)=>r.m.forEach((m,j)=>o+=(i+1)+','+(j+1)+',"'+m.a.join(' · ')+'","'+m.b.join(' · ')+'","'+(j?'':r.rest.join(' · '))+'"'+NL));let a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+o],{type:'text/csv;charset=utf-8'}));a.download='badminton-schedule.csv';a.click();URL.revokeObjectURL(a.href)}async function image(){if(!S.d||!window.html2canvas)return;let b=$('imageBtn'),r=$('results'),old=b.textContent;b.disabled=true;b.textContent='이미지 준비 중';r.classList.add('capture-image');try{let c=await window.html2canvas(r,{backgroundColor:'#f8fafc',scale:2,useCORS:true}),a=document.createElement('a');a.download='badminton-schedule.png';a.href=c.toDataURL('image/png');a.click()}catch{alert('이미지 저장에 실패했습니다. 다시 시도해 주세요.')}finally{r.classList.remove('capture-image');b.disabled=false;b.textContent=old}}$('playerCount').addEventListener('change',fields);$('playerCount').addEventListener('blur',()=>{$('playerCount').value=P();fields()});$('courts').addEventListener('input',rec);$('generate').addEventListener('click',generate);$('csvBtn').addEventListener('click',csv);$('imageBtn').addEventListener('click',image);$('printBtn').addEventListener('click',()=>window.print());$('copyBtn').addEventListener('click',async e=>{try{await navigator.clipboard.writeText(plain());e.currentTarget.textContent='복사 완료';setTimeout(()=>e.currentTarget.textContent='텍스트 복사',1500)}catch{window.prompt('아래 내용을 복사해 주세요.',plain())}});$('shareBtn').addEventListener('click',async()=>{let d={title:'배드민턴 경기 대진표',text:plain()};if(navigator.share){try{await navigator.share(d)}catch{}}else{try{await navigator.clipboard.writeText(plain())}catch{window.prompt('아래 내용을 복사해 주세요.',plain())}}});fields()})();
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const state = { schedule: null, settings: null };
+  const recommendedGamesPerPlayer = 6;
+  const randomNickname = (() => {
+    const starts = ['콕콩','스매시','하이','드롭','셔틀','라켓','네트','백','클리어','헤어핀','드라이브','푸시','리시브','점프','민턴','콕'];
+    const ends = ['고수','왕','러너','스타','러버','킬러','마스터','챔프','플레이어','요정','폭격기','수비수','번개','친구','코치','메이트'];
+    const used = new Set();
+    return () => {
+      let nickname;
+      do { nickname = `${starts[Math.floor(Math.random() * starts.length)]}${ends[Math.floor(Math.random() * ends.length)]}`; } while (used.has(nickname));
+      used.add(nickname);
+      return nickname;
+    };
+  })();
+  const initialNames = Array.from({ length: 16 }, randomNickname);
+  const inputStyle = document.createElement('style');
+  inputStyle.textContent = `.player-fields{grid-template-columns:repeat(4,minmax(0,1fr))!important}.nickname-field{display:block!important}.nickname-input-wrap{display:grid;gap:6px;min-width:0}.nickname-input-label{color:#64748b;font-size:12px;font-weight:800}.nickname-field .nickname-input-wrap input{min-width:0;padding:10px 11px!important;border:1px solid #dbe5ed!important;border-radius:9px!important;background:#fff!important}.nickname-field .nickname-input-wrap input:focus{border-color:#10b981!important;box-shadow:0 0 0 3px #10b98120}.capture-image .actions{display:none!important}.schedule-capture.capture-image{padding:24px;background:#fff;border-radius:18px}.single-court th:nth-child(2),.single-court td.court{display:none!important}#scheduleTable.multi-court{min-width:0}#scheduleTable.multi-court thead{display:none}#scheduleTable.multi-court tbody{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;padding:12px}#scheduleTable.multi-court tr{display:grid;grid-template-columns:1fr 1fr;overflow:hidden;border:1px solid #e2e8f0;border-radius:14px;background:#fff;box-shadow:0 5px 13px #0f172a0a}#scheduleTable.multi-court td{min-height:42px;padding:9px 10px;border:0;border-top:1px solid #eff4f6}#scheduleTable.multi-court td.round,#scheduleTable.multi-court td.court{background:#f1f5f9;color:#475569;font-size:12px}#scheduleTable.multi-court td.court{text-align:right}#scheduleTable.multi-court td.team-a,#scheduleTable.multi-court td.team-b,#scheduleTable.multi-court td.rest{grid-column:1/-1}#scheduleTable.multi-court td.team-a{background:#f0f9ff}#scheduleTable.multi-court td.team-b{background:#fff1f2}#scheduleTable.multi-court td.rest{background:#f8fafc;font-size:12px}#scheduleTable.multi-court td.vs{display:none}@media(max-width:700px){.player-fields{grid-template-columns:repeat(2,minmax(0,1fr))!important}.single-court tr{grid-template-columns:1fr!important}.single-court td.round{grid-column:1/-1}#scheduleTable.multi-court tbody{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:8px}#scheduleTable.multi-court td{padding:8px;font-size:12px}#scheduleTable.multi-court td.team-a:before,#scheduleTable.multi-court td.team-b:before{display:none}}`;
+  document.head.append(inputStyle);
+  const scheduleStyle = document.createElement('style');
+  scheduleStyle.textContent = `#scheduleTable.matrix-schedule{min-width:0}#scheduleTable.matrix-schedule th,#scheduleTable.matrix-schedule td{white-space:normal}#scheduleTable.matrix-schedule td.round{width:110px;font-weight:900;background:#f1f5f9;color:#475569}#scheduleTable.matrix-schedule .round-rest{display:block;margin-top:4px;color:#64748b;font-size:11px;font-weight:600}#scheduleTable.matrix-schedule td.single-rest{color:#64748b;font-size:13px}#scheduleTable.matrix-schedule td.court-match{font-weight:800;line-height:1.65}#scheduleTable.matrix-schedule .team-a{color:#0369a1}#scheduleTable.matrix-schedule .match-vs{margin:0 6px;color:#94a3b8;font-size:12px;font-weight:900}#scheduleTable.matrix-schedule .team-b{color:#be123c}@media(max-width:700px){#scheduleTable.matrix-schedule thead{display:none}#scheduleTable.matrix-schedule tbody{display:grid;gap:10px}#scheduleTable.matrix-schedule tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:hidden;border:1px solid #e2e8f0;border-radius:15px;background:#fff;box-shadow:0 5px 13px #0f172a0a}#scheduleTable.matrix-schedule td{min-height:52px;padding:10px;border:0;border-top:1px solid #eff4f6}#scheduleTable.matrix-schedule td.round{grid-column:1/-1;width:auto}#scheduleTable.matrix-schedule td.single-rest{grid-column:1/-1;background:#f8fafc}#scheduleTable.matrix-schedule td.court-match:before{content:attr(data-court);display:block;margin-bottom:4px;color:#64748b;font-size:11px;font-weight:900}#scheduleTable.matrix-schedule .match-vs{display:block;margin:1px 0;text-align:center}}`;
+  document.head.append(scheduleStyle);
+  const constraintAlertStyle = document.createElement('style');
+  constraintAlertStyle.textContent = `.report.singles-warning{border-color:#fecdd3!important;background:#fff1f2!important;color:#be123c!important;font-weight:900!important}`;
+  document.head.append(constraintAlertStyle);
+
+  function participantCount() {
+    const value = Number($('playerCount').value);
+    return Math.max(4, Math.min(40, Number.isInteger(value) ? value : 4));
+  }
+  function courtCount() {
+    const value = Number($('courts').value);
+    return Math.max(1, Math.min(4, Number.isInteger(value) ? value : 1));
+  }
+  function courtPlan(count, courts) {
+    const doubles = Math.min(courts, Math.floor(count / 4));
+    const remaining = count - doubles * 4;
+    const singles = remaining >= 2 && doubles < courts ? 1 : 0;
+    return { doubles, singles, courtsUsed: doubles + singles, slots: doubles * 4 + singles * 2 };
+  }
+  function recommendedRounds(count = participantCount(), courts = courtCount()) {
+    const plan = courtPlan(count, courts);
+    return Math.min(60, Math.ceil((count * (count - 1)) / plan.slots));
+  }
+  function updateRoundRecommendation() {
+    const count = participantCount(), courts = courtCount(), rounds = recommendedRounds(count, courts);
+    $('playerCount').value = count;
+    $('courts').value = courts;
+    $('rounds').value = rounds;
+    $('playerCountHint').textContent = `총 ${count}명`;
+    $('roundRecommendation').textContent = `모든 참가자와 1회 파트너 기준 추천 ${rounds}라운드`;
+  }
+  function syncPlayerFields() {
+    const current = [...document.querySelectorAll('[data-player-name]')].map(input => input.value);
+    const count = participantCount(), fields = $('playerFields');
+    fields.replaceChildren();
+    for (let i = 0; i < count; i++) {
+      const label = document.createElement('label'), inputWrap = document.createElement('span'), inputLabel = document.createElement('span'), input = document.createElement('input');
+      label.className = 'nickname-field';
+      inputWrap.className = 'nickname-input-wrap'; inputLabel.className = 'nickname-input-label'; inputLabel.textContent = '닉네임';
+      input.type = 'text'; input.maxLength = 24; input.placeholder = '닉네임 입력'; input.dataset.playerName = 'true';
+      input.value = current[i] ?? initialNames[i] ?? '';
+      inputWrap.append(inputLabel, input); label.append(inputWrap); fields.append(label);
+    }
+    updateRoundRecommendation();
+  }
+  function readPlayers() {
+    return [...document.querySelectorAll('[data-player-name]')].map(input => input.value.trim());
+  }
+  function validateNames(players) {
+    const duplicates = players.filter((p, i) => players.findIndex(q => q.toLocaleLowerCase() === p.toLocaleLowerCase()) !== i);
+    return { duplicates: [...new Set(duplicates)] };
+  }
+  function pairKey(a, b) { return a < b ? `${a}|${b}` : `${b}|${a}`; }
+  function count(map, a, b) { return map.get(pairKey(a, b)) || 0; }
+  function add(map, a, b) { const k = pairKey(a, b); map.set(k, (map.get(k) || 0) + 1); }
+  function shuffled(items) { const a = [...items]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function streakAfter(history, player) { let n = 0; for (let r = history.length - 1; r >= 0 && history[r].includes(player); r--) n++; return n; }
+
+  function choosePlayers(players, slots, history, plays, noThree) {
+    const ordered = shuffled(players).sort((a, b) => {
+      const aThird = noThree && streakAfter(history, a) >= 2 ? 1 : 0;
+      const bThird = noThree && streakAfter(history, b) >= 2 ? 1 : 0;
+      if (aThird !== bThird) return aThird - bThird;
+      const av = plays.get(a), bv = plays.get(b);
+      return av - bv || Math.random() - .5;
+    });
+    const safe = ordered.filter(p => !(noThree && streakAfter(history, p) >= 2));
+    return (safe.length >= slots ? safe : ordered).slice(0, slots);
+  }
+  function makeRound(selected, doubleCourts, singleCourts, partnerCounts, opponentCounts, rotate) {
+    let best = null, bestCost = Infinity;
+    const patterns = [[0,1,2,3],[0,2,1,3],[0,3,1,2]];
+    for (let trial = 0; trial < 70; trial++) {
+      const order = shuffled(selected), games = [];
+      for (let g = 0; g < doubleCourts; g++) {
+        const four = order.slice(g * 4, g * 4 + 4);
+        let choice = patterns[0], low = Infinity;
+        for (const p of patterns) {
+          const [a,b,c,d] = p.map(i => four[i]);
+          const cost = rotate ? 8 * (count(partnerCounts,a,b) + count(partnerCounts,c,d)) + count(opponentCounts,a,c) + count(opponentCounts,a,d) + count(opponentCounts,b,c) + count(opponentCounts,b,d) : 0;
+          if (cost < low) { low = cost; choice = p; }
+        }
+        const [a,b,c,d] = choice.map(i => four[i]); games.push({ type:'doubles', teamA:[a,b], teamB:[c,d] });
+      }
+      for (let g = 0; g < singleCourts; g++) { const [a,b] = order.slice(doubleCourts * 4 + g * 2, doubleCourts * 4 + g * 2 + 2); games.push({ type:'singles', teamA:[a], teamB:[b] }); }
+      const cost = games.filter(g => g.type === 'doubles').reduce((sum,g) => sum + (rotate ? 8*(count(partnerCounts,...g.teamA)+count(partnerCounts,...g.teamB)) + g.teamA.reduce((s,a)=>s+g.teamB.reduce((t,b)=>t+count(opponentCounts,a,b),0),0) : 0), 0);
+      if (cost < bestCost) { bestCost = cost; best = games; }
+    }
+    return best;
+  }
+  function generateOnce(players, courts, rounds, opts) {
+    const plan = courtPlan(players.length, courts);
+    const slots = plan.slots, plays = new Map(players.map(p => [p, 0]));
+    const partnerCounts = new Map(), opponentCounts = new Map(), history = [], roundsOut = [];
+    for (let r = 0; r < rounds; r++) {
+      const selected = choosePlayers(players, slots, history, plays, opts.noThree && players.length > slots);
+      const games = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate);
+      for (const game of games) {
+        if (game.type === 'doubles') { add(partnerCounts, ...game.teamA); add(partnerCounts, ...game.teamB); }
+        for (const a of game.teamA) for (const b of game.teamB) add(opponentCounts, a, b);
+      }
+      selected.forEach(p => plays.set(p, plays.get(p)+1));
+      history.push(selected); roundsOut.push({ games, resting: players.filter(p => !selected.includes(p)) });
+    }
+    return { rounds:roundsOut, plays, history, partnerCounts, opponentCounts, plan };
+  }
+  function evaluate(result, players, opts) {
+    const values = players.map(p => result.plays.get(p)); const spread = Math.max(...values)-Math.min(...values);
+    let third = 0, repeats = 0;
+    for (const p of players) { let run=0; for(const row of result.history){run=row.includes(p)?run+1:0;if(run>=3) third++;} }
+    for (const v of result.partnerCounts.values()) if (v > 1) repeats += v-1;
+    return spread*10000 + (opts.noThree ? third*1000 : 0) + (opts.rotate ? repeats*5 : 0) + Math.random();
+  }
+  function buildSchedule(players, courts, rounds, opts) {
+    let best;
+    const tries = Math.min(320, Math.max(100, players.length * 12));
+    for (let i=0; i<tries; i++) { const candidate = generateOnce(players,courts,rounds,opts); if (!best || evaluate(candidate,players,opts) < evaluate(best,players,opts)) best=candidate; }
+    return best;
+  }
+  function maxStreak(history, p) { let run=0,max=0; for(const row of history){run=row.includes(p)?run+1:0;max=Math.max(max,run);} return max; }
+  function render(result, players, settings) {
+    $('scheduleTitle').textContent = '🏸 배드민턴 경기 대진표';
+    const games = result.rounds[0].games.length;
+    const avg = (settings.rounds*result.plan.slots/players.length).toFixed(1).replace('.0','');
+    const format = result.plan.singles ? `복식 ${result.plan.doubles}코트 · 단식 ${result.plan.singles}코트` : '복식';
+    $('overview').textContent = `참석 ${players.length}명 · ${settings.courts}코트 중 ${games}코트 사용 · ${format} · ${settings.rounds}라운드 · 1인 평균 ${avg}게임`;
+    const scheduleTable = $('scheduleTable');
+    scheduleTable.classList.remove('single-court', 'multi-court');
+    scheduleTable.classList.add('matrix-schedule');
+    const header = scheduleTable.querySelector('thead tr'); header.replaceChildren();
+    const courtLabels = result.rounds[0].games.map((game, index) => `${index + 1}코트${game.type === 'singles' ? ' · 단식' : ''}`);
+    const headerLabels = games === 1 ? ['라운드', '대진', '휴식 / 대기'] : ['라운드', ...courtLabels];
+    headerLabels.forEach(label => { const th = document.createElement('th'); th.textContent = label; header.append(th); });
+    const tbody = scheduleTable.querySelector('tbody'); tbody.replaceChildren();
+    result.rounds.forEach((round, ri) => {
+      const tr = document.createElement('tr');
+      const roundCell = document.createElement('td'); roundCell.className = 'round'; roundCell.textContent = `${ri + 1}R`;
+      if (games > 1 && round.resting.length) { const rest = document.createElement('small'); rest.className = 'round-rest'; rest.textContent = `휴식: ${round.resting.join(', ')}`; roundCell.append(rest); }
+      tr.append(roundCell);
+      round.games.forEach((game, gi) => {
+        const cell = document.createElement('td'), teamA = document.createElement('span'), versus = document.createElement('span'), teamB = document.createElement('span');
+        cell.className = 'court-match'; cell.dataset.court = `${gi + 1}코트${game.type === 'singles' ? ' · 단식' : ''}`;
+        teamA.className = 'team-a'; teamA.textContent = game.teamA.join(', ');
+        versus.className = 'match-vs'; versus.textContent = 'vs';
+        teamB.className = 'team-b'; teamB.textContent = game.teamB.join(', ');
+        cell.append(teamA, versus, teamB); tr.append(cell);
+      });
+      if (games === 1) { const restCell = document.createElement('td'); restCell.className = 'single-rest'; restCell.textContent = round.resting.join(', ') || '대기자 없음'; tr.append(restCell); }
+      tbody.append(tr);
+    });
+    const verify = $('verifyTable').querySelector('tbody'); verify.replaceChildren();
+    const playValues=players.map(p=>result.plays.get(p)); const equal = Math.max(...playValues)-Math.min(...playValues)<=1;
+    players.forEach(p => { const streak=maxStreak(result.history,p), partners=[...result.partnerCounts.keys()].filter(k=>k.split('|').includes(p)).length; const status=streak<=2?'정상':'3연속 발생'; const cls=streak<=2?'status-ok':'status-alert'; const tr=document.createElement('tr'); [[p,''],[`${result.plays.get(p)}회`,''],[`${settings.rounds - result.plays.get(p)}회`,''],[`${streak}회`,streak<=2?'':'status-alert'],[`${partners}명`,''],[status,cls]].forEach(([t,c])=>{const td=document.createElement('td');td.textContent=t;td.className=c;tr.append(td)});verify.append(tr); });
+    const warnings=[];
+    if (result.plan.doubles < settings.courts) {
+      const setup = result.plan.singles
+        ? `${result.plan.doubles}복식 + ${result.plan.singles}단식으로 편성했습니다.`
+        : `${result.plan.doubles}코트만 복식으로 편성할 수 있어 남은 인원은 대기합니다.`;
+      warnings.push(`복식 운용 불가: ${setup}`);
+    }
+    if (settings.noThree && players.length<=result.plan.slots) warnings.push('모든 참가자가 매 라운드 출전하므로 3연속 출전을 피할 수 없습니다.');
+    if (settings.noThree && players.length>result.plan.slots && players.some(p=>maxStreak(result.history,p)>=3)) warnings.push('인원·라운드 조건상 일부 3연속 출전이 발생했습니다.');
+    if (settings.equal && !equal) warnings.push('출전 횟수 차이가 1회를 초과했습니다. 라운드를 늘리거나 조건을 조정해 주세요.');
+    const report=$('constraintReport'); const doublesUnavailable=result.plan.doubles<settings.courts; report.className=`report ${warnings.length?'warning':''}${doublesUnavailable?' singles-warning':''}`; report.textContent=warnings.length ? `${doublesUnavailable ? '' : '확인 필요: '}${warnings.join(' ')}` : '검증 완료: 출전 횟수는 균등하게 배분되었고, 적용 가능한 연속 출전 조건을 확인했습니다.';
+    state.schedule=result; state.settings=settings; $('results').classList.remove('hidden'); $('results').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function generate() {
+    const players=readPlayers(), validation=validateNames(players), notice=$('nicknameNotice');
+    const blankIndex=players.findIndex(name => !name);
+    if (blankIndex !== -1 || validation.duplicates.length) { notice.className='notice error'; notice.textContent=validation.duplicates.length ? `중복 닉네임: ${validation.duplicates.join(', ')} — 철자를 수정한 뒤 다시 만들어 주세요.` : `참가자 ${blankIndex + 1}의 닉네임을 입력해 주세요.`; return; }
+    const courts=courtCount(), rounds=Number($('rounds').value);
+    $('courts').value = courts;
+    if (!Number.isInteger(rounds)||rounds<1) { notice.className='notice error';notice.textContent='라운드 수를 올바른 정수로 입력해 주세요.';return; }
+    notice.className='notice hidden'; notice.textContent='';
+    const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,rotate:$('rotatePartners').checked};
+    render(buildSchedule(players,courts,rounds,settings),players,settings);
+  }
+  function scheduleText() {
+    const s = state.schedule, set = state.settings;
+    if (!s) return '';
+    let text = `🏸 배드민턴 경기 대진표\n참석 ${s.plays.size}명 · ${set.courts}코트 · ${set.rounds}라운드\n\n`;
+    const isSingleCourt = s.rounds[0].games.length === 1;
+    s.rounds.forEach((round, index) => {
+      text += `[라운드 ${index + 1}]\n`;
+      round.games.forEach((game, courtIndex) => {
+        const prefix = isSingleCourt ? '' : `${courtIndex + 1}코트  `;
+        text += `${prefix}${game.teamA.join(', ')} vs ${game.teamB.join(', ')}\n`;
+      });
+      text += `휴식: ${round.resting.join(', ') || '없음'}\n\n`;
+    });
+    return text;
+  }
+  function downloadCsv() { if(!state.schedule)return; let csv='라운드,코트,팀 A,팀 B,휴식/대기\n';state.schedule.rounds.forEach((r,i)=>r.games.forEach((g,j)=>csv+=`${i+1},${j+1},"${g.teamA.join(' · ')}","${g.teamB.join(' · ')}","${j===0?r.resting.join(' · '):''}"\n`));const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='badminton-schedule.csv';a.click();URL.revokeObjectURL(a.href); }
+  async function downloadImage() {
+    if (!state.schedule || !window.html2canvas) return;
+    const button = $('imageBtn'), capture = $('scheduleCapture'), original = button.textContent;
+    button.disabled = true; button.textContent = '이미지 준비 중'; capture.classList.add('capture-image');
+    try {
+      const canvas = await window.html2canvas(capture, { backgroundColor: '#f8fafc', scale: 2, useCORS: true });
+      const link = document.createElement('a'); link.download = 'badminton-schedule.png'; link.href = canvas.toDataURL('image/png'); link.click();
+    } catch { alert('이미지 저장에 실패했습니다. 다시 시도해 주세요.'); }
+    finally { capture.classList.remove('capture-image'); button.disabled = false; button.textContent = original; }
+  }
+  // 숫자를 지우거나 여러 자리 수를 입력하는 동안에는 값을 강제로 보정하지 않습니다.
+  $('playerCount').addEventListener('change',syncPlayerFields);
+  $('playerCount').addEventListener('blur',syncPlayerFields);
+  // 코트 수도 여러 자리 값을 입력하는 동안에는 즉시 보정하지 않습니다.
+  $('courts').addEventListener('change',updateRoundRecommendation);
+  $('courts').addEventListener('blur',updateRoundRecommendation);
+  syncPlayerFields();
+  $('generate').addEventListener('click',generate);
+  $('imageBtn').addEventListener('click',downloadImage);
+  $('copyBtn').addEventListener('click',async e=>{try{await navigator.clipboard.writeText(scheduleText());e.currentTarget.textContent='복사 완료';setTimeout(()=>e.currentTarget.textContent='텍스트 복사',1500)}catch{window.prompt('아래 내용을 복사해 주세요.',scheduleText())}});
+})();
