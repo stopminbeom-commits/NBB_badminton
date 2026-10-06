@@ -81,6 +81,7 @@
   function pairKey(a, b) { return a < b ? `${a}|${b}` : `${b}|${a}`; }
   function count(map, a, b) { return map.get(pairKey(a, b)) || 0; }
   function add(map, a, b) { const k = pairKey(a, b); map.set(k, (map.get(k) || 0) + 1); }
+  function doublesPairingKey(game) { return [pairKey(...game.teamA), pairKey(...game.teamB)].sort().join(' / '); }
   function shuffled(items) { const a = [...items]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   function streakAfter(history, player) { let n = 0; for (let r = history.length - 1; r >= 0 && history[r].includes(player); r--) n++; return n; }
 
@@ -95,7 +96,7 @@
     const safe = ordered.filter(p => !(noThree && streakAfter(history, p) >= 2));
     return (safe.length >= slots ? safe : ordered).slice(0, slots);
   }
-  function makeRound(selected, doubleCourts, singleCourts, partnerCounts, opponentCounts, rotate) {
+  function makeRound(selected, doubleCourts, singleCourts, partnerCounts, opponentCounts, rotate, avoidedPairings = null) {
     let best = null, bestCost = Infinity;
     const patterns = [[0,1,2,3],[0,2,1,3],[0,3,1,2]];
     for (let trial = 0; trial < 70; trial++) {
@@ -111,7 +112,8 @@
         const [a,b,c,d] = choice.map(i => four[i]); games.push({ type:'doubles', teamA:[a,b], teamB:[c,d] });
       }
       for (let g = 0; g < singleCourts; g++) { const [a,b] = order.slice(doubleCourts * 4 + g * 2, doubleCourts * 4 + g * 2 + 2); games.push({ type:'singles', teamA:[a], teamB:[b] }); }
-      const cost = games.filter(g => g.type === 'doubles').reduce((sum,g) => sum + (rotate ? 8*(count(partnerCounts,...g.teamA)+count(partnerCounts,...g.teamB)) + g.teamA.reduce((s,a)=>s+g.teamB.reduce((t,b)=>t+count(opponentCounts,a,b),0),0) : 0), 0);
+      const doubles = games.filter(g => g.type === 'doubles');
+      const cost = doubles.reduce((sum,g) => sum + (rotate ? 8*(count(partnerCounts,...g.teamA)+count(partnerCounts,...g.teamB)) + g.teamA.reduce((s,a)=>s+g.teamB.reduce((t,b)=>t+count(opponentCounts,a,b),0),0) : 0), 0) + (avoidedPairings && doubles[0] && avoidedPairings.has(doublesPairingKey(doubles[0])) ? 100000 : 0);
       if (cost < bestCost) { bestCost = cost; best = games; }
     }
     return best;
@@ -120,14 +122,22 @@
     const plan = courtPlan(players.length, courts);
     const slots = plan.slots, plays = new Map(players.map(p => [p, 0]));
     const partnerCounts = new Map(), opponentCounts = new Map(), history = [], roundsOut = [];
+    const restPattern = opts.repeatRestCycle ? shuffled(players) : null;
+    const usedPairingsByRest = new Map();
     for (let r = 0; r < rounds; r++) {
-      const selected = choosePlayers(players, slots, history, plays, opts.noThree && players.length > slots);
-      const games = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate);
+      const forcedRest = restPattern ? restPattern[r % restPattern.length] : null;
+      const selected = forcedRest ? players.filter(player => player !== forcedRest) : choosePlayers(players, slots, history, plays, opts.noThree && players.length > slots);
+      const games = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate, forcedRest ? usedPairingsByRest.get(forcedRest) : null);
       for (const game of games) {
         if (game.type === 'doubles') { add(partnerCounts, ...game.teamA); add(partnerCounts, ...game.teamB); }
         for (const a of game.teamA) for (const b of game.teamB) add(opponentCounts, a, b);
       }
       selected.forEach(p => plays.set(p, plays.get(p)+1));
+      if (forcedRest && games[0]?.type === 'doubles') {
+        const used = usedPairingsByRest.get(forcedRest) || new Set();
+        used.add(doublesPairingKey(games[0]));
+        usedPairingsByRest.set(forcedRest, used);
+      }
       history.push(selected); roundsOut.push({ games, resting: players.filter(p => !selected.includes(p)) });
     }
     return { rounds:roundsOut, plays, history, partnerCounts, opponentCounts, plan };
@@ -151,7 +161,8 @@
     const games = result.rounds[0].games.length;
     const avg = (settings.rounds*result.plan.slots/players.length).toFixed(1).replace('.0','');
     const format = result.plan.singles ? `복식 ${result.plan.doubles}코트 · 단식 ${result.plan.singles}코트` : '복식';
-    $('overview').textContent = `참석 ${players.length}명 · ${settings.courts}코트 중 ${games}코트 사용 · ${format} · ${settings.rounds}라운드 · 1인 평균 ${avg}게임`;
+    const repeatRestLabel = settings.repeatRestCycle ? ' · 휴식 순서 반복' : '';
+    $('overview').textContent = `참석 ${players.length}명 · ${settings.courts}코트 중 ${games}코트 사용 · ${format}${repeatRestLabel} · ${settings.rounds}라운드 · 1인 평균 ${avg}게임`;
     const scheduleTable = $('scheduleTable');
     scheduleTable.classList.remove('single-court', 'multi-court');
     scheduleTable.classList.add('matrix-schedule');
@@ -200,7 +211,8 @@
     $('courts').value = courts;
     if (!Number.isInteger(rounds)||rounds<1) { notice.className='notice error';notice.textContent='라운드 수를 올바른 정수로 입력해 주세요.';return; }
     notice.className='notice hidden'; notice.textContent='';
-    const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,rotate:$('rotatePartners').checked};
+    const recommended = recommendedRounds(players.length, courts);
+    const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,rotate:$('rotatePartners').checked,repeatRestCycle:players.length===5&&courts===1&&rounds>=recommended*2&&rounds%recommended===0};
     render(buildSchedule(players,courts,rounds,settings),players,settings);
   }
   function scheduleText() {
