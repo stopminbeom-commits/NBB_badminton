@@ -49,13 +49,24 @@
     const plan = courtPlan(count, courts);
     return Math.min(60, Math.ceil((count * (count - 1)) / plan.slots));
   }
+  function gcd(a, b) {
+    while (b) [a, b] = [b, a % b];
+    return a;
+  }
+  function equalRotationRounds(count = participantCount(), courts = courtCount()) {
+    const slots = courtPlan(count, courts).slots;
+    return slots ? Math.min(60, count / gcd(count, slots)) : 1;
+  }
   function updateRoundRecommendation() {
-    const count = participantCount(), courts = courtCount(), rounds = recommendedRounds(count, courts);
+    const count = participantCount(), courts = courtCount();
+    const rounds = recommendedRounds(count, courts), equalRounds = equalRotationRounds(count, courts);
     $('playerCount').value = count;
     $('courts').value = courts;
     $('rounds').value = rounds;
     $('playerCountHint').textContent = `총 ${count}명`;
-    $('roundRecommendation').textContent = `모든 참가자와 1회 파트너 기준 추천 ${rounds}라운드`;
+    $('roundRecommendation').textContent = equalRounds === rounds
+      ? `파트너 순환 · 균등 출전/휴식 기준 추천 ${rounds}라운드`
+      : `파트너 순환 최소 ${rounds}라운드 · 균등 출전/휴식 최소 주기 ${equalRounds}라운드`;
   }
   function syncPlayerFields() {
     const current = [...document.querySelectorAll('[data-player-name]')].map(input => input.value);
@@ -96,6 +107,36 @@
     const safe = ordered.filter(p => !(noThree && streakAfter(history, p) >= 2));
     return (safe.length >= slots ? safe : ordered).slice(0, slots);
   }
+  function selectionKey(selected) { return [...selected].sort().join('\u0001'); }
+  function cyclicThirdCount(history, players) {
+    let thirds = 0;
+    for (const player of players) {
+      let run = 0;
+      for (const selected of [...history, ...history.slice(0, 2)]) {
+        run = selected.includes(player) ? run + 1 : 0;
+        if (run >= 3) thirds++;
+      }
+    }
+    return thirds;
+  }
+  function buildBalancedCycle(players, slots, cycleRounds, noThree) {
+    let best = null, bestScore = Infinity;
+    for (let attempt = 0; attempt < 160; attempt++) {
+      const cyclePlays = new Map(players.map(p => [p, 0])), cycleHistory = [], selections = [];
+      for (let r = 0; r < cycleRounds; r++) {
+        const selected = choosePlayers(players, slots, cycleHistory, cyclePlays, noThree);
+        selected.forEach(p => cyclePlays.set(p, cyclePlays.get(p) + 1));
+        cycleHistory.push(selected); selections.push(selected);
+      }
+      const values = players.map(p => cyclePlays.get(p));
+      const spread = Math.max(...values) - Math.min(...values);
+      const repeatedGroups = selections.length - new Set(selections.map(selectionKey)).size;
+      const score = repeatedGroups * 1000000 + spread * 10000 + (noThree ? cyclicThirdCount(cycleHistory, players) * 100 : 0);
+      if (score < bestScore) { bestScore = score; best = selections; }
+      if (score === 0) break;
+    }
+    return best;
+  }
   function makeRound(selected, doubleCourts, singleCourts, partnerCounts, opponentCounts, rotate, avoidedPairings = null) {
     let best = null, bestCost = Infinity;
     const patterns = [[0,1,2,3],[0,2,1,3],[0,3,1,2]];
@@ -124,21 +165,25 @@
     const plan = courtPlan(players.length, courts);
     const slots = plan.slots, plays = new Map(players.map(p => [p, 0]));
     const partnerCounts = new Map(), opponentCounts = new Map(), history = [], roundsOut = [];
-    const restPattern = opts.repeatRestCycle ? shuffled(players) : null;
-    const usedPairingsByRest = new Map();
+    const selectionCycle = opts.repeatRestCycle
+      ? buildBalancedCycle(players, slots, opts.repeatCycleRounds, opts.noThree && players.length > slots)
+      : null;
+    const usedPairingsBySelection = new Map();
     for (let r = 0; r < rounds; r++) {
-      const forcedRest = restPattern ? restPattern[r % restPattern.length] : null;
-      const selected = forcedRest ? players.filter(player => player !== forcedRest) : choosePlayers(players, slots, history, plays, opts.noThree && players.length > slots);
-      const games = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate, forcedRest ? usedPairingsByRest.get(forcedRest) : null);
+      const selected = selectionCycle
+        ? selectionCycle[r % selectionCycle.length]
+        : choosePlayers(players, slots, history, plays, opts.noThree && players.length > slots);
+      const key = selectionCycle ? selectionKey(selected) : null;
+      const games = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate, key ? usedPairingsBySelection.get(key) : null);
       for (const game of games) {
         if (game.type === 'doubles') { add(partnerCounts, ...game.teamA); add(partnerCounts, ...game.teamB); }
         for (const a of game.teamA) for (const b of game.teamB) add(opponentCounts, a, b);
       }
       selected.forEach(p => plays.set(p, plays.get(p)+1));
-      if (forcedRest && games[0]?.type === 'doubles') {
-        const used = usedPairingsByRest.get(forcedRest) || new Set();
+      if (key && games[0]?.type === 'doubles') {
+        const used = usedPairingsBySelection.get(key) || new Set();
         used.add(doublesPairingKey(games[0]));
-        usedPairingsByRest.set(forcedRest, used);
+        usedPairingsBySelection.set(key, used);
       }
       history.push(selected); roundsOut.push({ games, resting: players.filter(p => !selected.includes(p)) });
     }
@@ -213,8 +258,8 @@
     $('courts').value = courts;
     if (!Number.isInteger(rounds)||rounds<1) { notice.className='notice error';notice.textContent='라운드 수를 올바른 정수로 입력해 주세요.';return; }
     notice.className='notice hidden'; notice.textContent='';
-    const recommended = recommendedRounds(players.length, courts);
-    const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,rotate:$('rotatePartners').checked,repeatRestCycle:players.length===5&&courts===1&&rounds>=recommended*2&&rounds%recommended===0};
+    const equalRounds = equalRotationRounds(players.length, courts), plan = courtPlan(players.length, courts);
+    const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,rotate:$('rotatePartners').checked,repeatRestCycle:plan.doubles===1&&plan.singles===0&&players.length>plan.slots&&rounds>=equalRounds*2&&rounds%equalRounds===0,repeatCycleRounds:equalRounds};
     render(buildSchedule(players,courts,rounds,settings),players,settings);
   }
   function scheduleText() {
