@@ -106,7 +106,9 @@
         let choice = patterns[0], low = Infinity;
         for (const p of patterns) {
           const [a,b,c,d] = p.map(i => four[i]);
-          const cost = rotate ? 8 * (count(partnerCounts,a,b) + count(partnerCounts,c,d)) + count(opponentCounts,a,c) + count(opponentCounts,a,d) + count(opponentCounts,b,c) + count(opponentCounts,b,d) : 0;
+          const candidate = { type:'doubles', teamA:[a,b], teamB:[c,d] };
+          const repeatPenalty = avoidedPairings && doubleCourts === 1 && avoidedPairings.has(doublesPairingKey(candidate)) ? 100000 : 0;
+          const cost = (rotate ? 8 * (count(partnerCounts,a,b) + count(partnerCounts,c,d)) + count(opponentCounts,a,c) + count(opponentCounts,a,d) + count(opponentCounts,b,c) + count(opponentCounts,b,d) : 0) + repeatPenalty;
           if (cost < low) { low = cost; choice = p; }
         }
         const [a,b,c,d] = choice.map(i => four[i]); games.push({ type:'doubles', teamA:[a,b], teamB:[c,d] });
