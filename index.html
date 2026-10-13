@@ -1,8 +1,119 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="공정한 복식 배드민턴 대진표를 만드는 콕매치"><title>콕매치 | 배드민턴 대진표</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"></head>
-<body><div class="app-shell"><header class="site-header no-print"><div class="wrap brand"><span class="brand-mark">🏸</span><span class="brand-name">콕매치</span><span class="brand-tag">BADMINTON MATCH MAKER</span></div></header><main class="wrap">
-<section class="hero no-print"><p class="eyebrow">READY · SET · PLAY</p><h1>더 공정하게,<br><em>더 신나게.</em></h1><p>참가 인원과 코트만 설정하면 균형 잡힌 복식 대진을 바로 만들어요.</p></section>
-<section class="panel setup-panel no-print" aria-labelledby="setup-title"><div class="panel-title"><div><p class="section-kicker">01 · SETUP</p><h2 id="setup-title">오늘의 매치 설정</h2></div><span>필수 항목</span></div><div class="form-grid"><label class="field"><span>참가 인원</span><small id="playerCountHint">4~40명</small><input id="playerCount" type="number" min="4" max="40" value="8"></label><label class="field"><span>가용 코트 수</span><small>1~4코트 · 동시 경기 기준</small><input id="courts" type="number" min="1" max="4" value="1"></label><label class="field field-wide"><span>진행 라운드</span><small id="roundRecommendation"></small><input id="rounds" type="number" min="1" max="60"></label><div class="field field-wide participant-field"><div class="field-heading"><span>참가자 닉네임</span><small>참가자 번호와 이름을 각각 확인해 입력해 주세요.</small></div><div id="playerFields" class="player-fields"></div></div></div><fieldset class="constraints"><legend>적용 조건</legend><label class="constraint-chip"><input id="equalPlay" type="checkbox" checked><span>출전 · 휴식 균등</span></label><label class="constraint-chip"><input id="noThree" type="checkbox" checked><span>3연속 출전 피하기</span></label><label class="constraint-chip"><input id="rotatePartners" type="checkbox" checked><span>파트너 · 상대 순환</span></label></fieldset><div id="nicknameNotice" class="notice hidden" role="status"></div><button id="generate" class="primary generate-btn" type="button"><span>대진표 만들기</span><b>→</b></button></section>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="공정한 복식 배드민턴 대진표를 만드는 콕매치">
+<title>콕매치 | 배드민턴 대진표</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+<header class="site-header no-print">
+<div class="wrap brand">
+<span class="brand-mark">🏸</span>
+<span class="brand-name">콕매치</span>
+<span class="brand-tag">BADMINTON MATCH MAKER</span>
+</div>
+</header>
+<main class="wrap">
+<section class="hero no-print">
+<p class="eyebrow">READY · SET · PLAY</p>
+<h1>더 공정하게,<br>
+<em>더 신나게.</em>
+</h1>
+<p>참가 인원과 코트만 설정하면 균형 잡힌 복식 대진을 바로 만들어요.</p>
+</section>
+<section class="panel setup-panel no-print" aria-labelledby="setup-title">
+<div class="panel-title">
+<div>
+<p class="section-kicker">01 · SETUP</p>
+<h2 id="setup-title">오늘의 매치 설정</h2>
+</div>
+<span>필수 항목</span>
+</div>
+<div class="form-grid">
+<label class="field">
+<span>참가 인원</span>
+<small id="playerCountHint">4~40명</small>
+<input id="playerCount" type="number" min="4" max="40" value="8">
+</label>
+<label class="field">
+<span>가용 코트 수</span>
+<small>1~4코트 · 동시 경기 기준</small>
+<input id="courts" type="number" min="1" max="4" value="1">
+</label>
+<label class="field field-wide">
+<span>진행 라운드</span>
+<small id="roundRecommendation">
+</small>
+<input id="rounds" type="number" min="1" max="120">
+</label>
+<fieldset class="constraints field-wide">
+<legend>적용 조건</legend>
+<p class="constraint-help">체크한 순서대로 우선순위가 정해집니다. 순위를 바꾸면 해당 조건과 순서가 서로 바뀝니다.</p>
+<div class="constraint-list">
+<label class="constraint-option">
+<input id="equalPlay" type="checkbox" checked>
+<span>출전 · 휴식 균등</span>
+<select id="priorityEqual" aria-label="출전 휴식 균등 우선순위">
+<option value="1" selected>1순위</option>
+<option value="2">2순위</option>
+<option value="3">3순위</option>
+<option value="4">4순위</option>
+</select>
+</label>
+<label class="constraint-option">
+<input id="noThree" type="checkbox" checked>
+<span>3연속 출전 피하기</span>
+<select id="priorityNoThree" aria-label="3연속 출전 피하기 우선순위">
+<option value="1">1순위</option>
+<option value="2" selected>2순위</option>
+<option value="3">3순위</option>
+<option value="4">4순위</option>
+</select>
+</label>
+<label class="constraint-option">
+<input id="rotatePartners" type="checkbox" checked>
+<span>파트너 · 상대 순환</span>
+<select id="priorityRotate" aria-label="파트너 상대 순환 우선순위">
+<option value="1">1순위</option>
+<option value="2">2순위</option>
+<option value="3" selected>3순위</option>
+<option value="4">4순위</option>
+</select>
+</label>
+<label class="constraint-option">
+<input id="noConsecutiveRest" type="checkbox" checked>
+<span>연속 휴식 지양</span>
+<select id="priorityNoRest" aria-label="연속 휴식 지양 우선순위">
+<option value="1">1순위</option>
+<option value="2">2순위</option>
+<option value="3">3순위</option>
+<option value="4" selected>4순위</option>
+</select>
+</label>
+</div>
+</fieldset>
+<div class="field field-wide participant-field">
+<div class="field-heading">
+<span>참가자 닉네임</span>
+<small>참가자 번호와 이름을 각각 확인해 입력해 주세요.</small>
+</div>
+<div id="playerFields" class="player-fields">
+</div>
+</div>
+</div>
+<div id="nicknameNotice" class="notice hidden" role="status">
+</div>
+<button id="generate" class="primary generate-btn" type="button">
+<span>대진표 만들기</span>
+<b>→</b>
+</button>
+</section>
 <section id="results" class="results hidden" aria-live="polite">
   <!-- 이미지 저장 시 제목·대진표만 캡처하고, 검증표는 제외합니다. -->
   <div id="scheduleCapture" class="schedule-capture">
@@ -10,7 +121,8 @@
     <div>
       <p class="section-kicker">02 · MATCH PLAN</p>
       <h2 id="scheduleTitle">🏸 배드민턴 경기 대진표</h2>
-      <p id="overview" class="overview"></p>
+      <p id="overview" class="overview">
+</p>
     </div>
     <div class="actions no-print">
       <button class="secondary" id="copyBtn" type="button">텍스트 복사</button>
@@ -18,7 +130,8 @@
     </div>
   </div>
 
-    <div id="constraintReport"></div>
+    <div id="constraintReport">
+</div>
     <div class="legend">
       <span class="team-a-dot">팀 A</span>
       <span class="team-b-dot">팀 B</span>
@@ -26,22 +139,58 @@
     </div>
     <div class="table-shell">
       <table id="scheduleTable">
-        <thead><tr><th>라운드</th><th>코트</th><th>팀 A</th><th></th><th>팀 B</th><th>휴식 / 대기</th></tr></thead>
-        <tbody></tbody>
+        <thead>
+<tr>
+<th>라운드</th>
+<th>코트</th>
+<th>팀 A</th>
+<th>
+</th>
+<th>팀 B</th>
+<th>휴식 / 대기</th>
+</tr>
+</thead>
+        <tbody>
+</tbody>
       </table>
     </div>
   </div>
 
   <!-- 화면에는 표시하지만 이미지 저장 범위에서는 제외합니다. -->
   <section class="verification">
-    <div class="verification-title"><div><p class="section-kicker">03 · CHECK</p><h3>개인별 출전 데이터 검증</h3></div><span>출전 밸런스 확인</span></div>
+    <div class="verification-title">
+<div>
+<p class="section-kicker">03 · CHECK</p>
+<h3>개인별 출전 데이터 검증</h3>
+</div>
+<span>출전 밸런스 확인</span>
+</div>
     <div class="table-shell">
       <table id="verifyTable">
-        <thead><tr><th>닉네임</th><th>출전</th><th>휴식</th><th>최장 연속 출전</th><th>파트너 수</th><th>상태</th></tr></thead>
-        <tbody></tbody>
+        <thead>
+<tr>
+<th>닉네임</th>
+<th>출전</th>
+<th>휴식</th>
+<th>최장 연속 출전</th>
+<th>최장 연속 휴식</th>
+<th>파트너 수</th>
+<th>상태</th>
+</tr>
+</thead>
+        <tbody>
+</tbody>
       </table>
     </div>
   </section>
   <p class="footnote">현장에서는 라운드가 끝날 때마다 다음 카드로 진행해 주세요. 시작 전 닉네임을 다시 확인하면 더 정확합니다.</p>
 </section>
-</main><footer class="wrap no-print">콕매치 · 공정한 한 게임을 위한 배드민턴 매칭 도구</footer></div><script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script><script src="app.js"></script></body></html>
+</main>
+<footer class="wrap no-print">콕매치 · 균형있는 게임을 위한 배드민턴 매칭 도구</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js">
+</script>
+<script src="app.js">
+</script>
+</body>
+</html>

@@ -1,7 +1,17 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const state = { schedule: null, settings: null };
+  const priorityConfig = [
+    { key: 'equal', checkbox: 'equalPlay', select: 'priorityEqual' },
+    { key: 'noThree', checkbox: 'noThree', select: 'priorityNoThree' },
+    { key: 'rotate', checkbox: 'rotatePartners', select: 'priorityRotate' },
+    { key: 'noRest', checkbox: 'noConsecutiveRest', select: 'priorityNoRest' }
+  ];
+  const state = {
+    schedule: null,
+    settings: null,
+    priorityOrder: priorityConfig.filter(item => $(item.checkbox).checked).map(item => item.key)
+  };
   const recommendedGamesPerPlayer = 6;
   const randomNickname = (() => {
     const starts = ['콕콩','스매시','하이','드롭','셔틀','라켓','네트','백','클리어','헤어핀','드라이브','푸시','리시브','점프','민턴','콕'];
@@ -18,6 +28,9 @@
   const inputStyle = document.createElement('style');
   inputStyle.textContent = `.player-fields{grid-template-columns:repeat(4,minmax(0,1fr))!important}.nickname-field{display:block!important}.nickname-input-wrap{display:grid;gap:6px;min-width:0}.nickname-input-label{color:#64748b;font-size:12px;font-weight:800}.nickname-field .nickname-input-wrap input{min-width:0;padding:10px 11px!important;border:1px solid #dbe5ed!important;border-radius:9px!important;background:#fff!important}.nickname-field .nickname-input-wrap input:focus{border-color:#10b981!important;box-shadow:0 0 0 3px #10b98120}.capture-image .actions{display:none!important}.schedule-capture.capture-image{padding:24px;background:#fff;border-radius:18px}.single-court th:nth-child(2),.single-court td.court{display:none!important}#scheduleTable.multi-court{min-width:0}#scheduleTable.multi-court thead{display:none}#scheduleTable.multi-court tbody{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;padding:12px}#scheduleTable.multi-court tr{display:grid;grid-template-columns:1fr 1fr;overflow:hidden;border:1px solid #e2e8f0;border-radius:14px;background:#fff;box-shadow:0 5px 13px #0f172a0a}#scheduleTable.multi-court td{min-height:42px;padding:9px 10px;border:0;border-top:1px solid #eff4f6}#scheduleTable.multi-court td.round,#scheduleTable.multi-court td.court{background:#f1f5f9;color:#475569;font-size:12px}#scheduleTable.multi-court td.court{text-align:right}#scheduleTable.multi-court td.team-a,#scheduleTable.multi-court td.team-b,#scheduleTable.multi-court td.rest{grid-column:1/-1}#scheduleTable.multi-court td.team-a{background:#f0f9ff}#scheduleTable.multi-court td.team-b{background:#fff1f2}#scheduleTable.multi-court td.rest{background:#f8fafc;font-size:12px}#scheduleTable.multi-court td.vs{display:none}@media(max-width:700px){.player-fields{grid-template-columns:repeat(2,minmax(0,1fr))!important}.single-court tr{grid-template-columns:1fr!important}.single-court td.round{grid-column:1/-1}#scheduleTable.multi-court tbody{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:8px}#scheduleTable.multi-court td{padding:8px;font-size:12px}#scheduleTable.multi-court td.team-a:before,#scheduleTable.multi-court td.team-b:before{display:none}}`;
   document.head.append(inputStyle);
+  const playerGridStyle = document.createElement('style');
+  playerGridStyle.textContent = `.player-fields{grid-template-columns:repeat(var(--player-columns,4),minmax(0,1fr))!important}@media(max-width:700px){.player-fields{grid-template-columns:repeat(2,minmax(0,1fr))!important}}`;
+  document.head.append(playerGridStyle);
   const scheduleStyle = document.createElement('style');
   scheduleStyle.textContent = `#scheduleTable.matrix-schedule{min-width:0}#scheduleTable.matrix-schedule th,#scheduleTable.matrix-schedule td{white-space:normal}#scheduleTable.matrix-schedule td.round{width:110px;font-weight:900;background:#f1f5f9;color:#475569}#scheduleTable.matrix-schedule .round-rest{display:block;margin-top:4px;color:#64748b;font-size:11px;font-weight:600}#scheduleTable.matrix-schedule td.single-rest{color:#64748b;font-size:13px}#scheduleTable.matrix-schedule td.court-match{font-weight:800;line-height:1.65}#scheduleTable.matrix-schedule .team-a{color:#0369a1}#scheduleTable.matrix-schedule .match-vs{margin:0 6px;color:#94a3b8;font-size:12px;font-weight:900}#scheduleTable.matrix-schedule .team-b{color:#be123c}@media(max-width:700px){#scheduleTable.matrix-schedule thead{display:none}#scheduleTable.matrix-schedule tbody{display:grid;gap:10px}#scheduleTable.matrix-schedule tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:hidden;border:1px solid #e2e8f0;border-radius:15px;background:#fff;box-shadow:0 5px 13px #0f172a0a}#scheduleTable.matrix-schedule td{min-height:52px;padding:10px;border:0;border-top:1px solid #eff4f6}#scheduleTable.matrix-schedule td.round{grid-column:1/-1;width:auto}#scheduleTable.matrix-schedule td.single-rest{grid-column:1/-1;background:#f8fafc}#scheduleTable.matrix-schedule td.court-match:before{content:attr(data-court);display:block;margin-bottom:4px;color:#64748b;font-size:11px;font-weight:900}#scheduleTable.matrix-schedule .match-vs{display:block;margin:1px 0;text-align:center}}`;
   document.head.append(scheduleStyle);
@@ -30,6 +43,9 @@
   const imageLayoutStyle = document.createElement('style');
   imageLayoutStyle.textContent = `.schedule-capture.capture-image{width:900px;max-width:none;padding:26px 28px}.capture-image .schedule-head{display:flex!important}.capture-image .table-shell{overflow:visible!important;border:1px solid #e4ecf1!important;background:#fff!important}.capture-image #scheduleTable.matrix-schedule{display:table!important;width:100%!important;min-width:0!important;font-size:12px}.capture-image #scheduleTable.matrix-schedule thead{display:table-header-group!important}.capture-image #scheduleTable.matrix-schedule tbody{display:table-row-group!important}.capture-image #scheduleTable.matrix-schedule tr{display:table-row!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important}.capture-image #scheduleTable.matrix-schedule th,.capture-image #scheduleTable.matrix-schedule td{display:table-cell!important;min-height:0!important;padding:8px 10px!important;border:0!important;border-top:1px solid #edf2f5!important;vertical-align:middle!important}.capture-image #scheduleTable.matrix-schedule th{border-top:0!important}.capture-image #scheduleTable.matrix-schedule td.round{width:86px!important}.capture-image #scheduleTable.matrix-schedule td.court-match{line-height:1.45!important}.capture-image #scheduleTable.matrix-schedule td.court-match:before{display:none!important}.capture-image #scheduleTable.matrix-schedule .team-a,.capture-image #scheduleTable.matrix-schedule .team-b{display:inline!important;text-align:initial!important;overflow-wrap:normal!important;word-break:normal!important}.capture-image #scheduleTable.matrix-schedule .match-vs{display:inline!important;margin:0 6px!important}.capture-image #scheduleTable.matrix-schedule .single-rest{display:table-cell!important;background:transparent!important}`;
   document.head.append(imageLayoutStyle);
+  const teamCardStyle = document.createElement('style');
+  teamCardStyle.textContent = `#scheduleTable.matrix-schedule .team-card{display:inline-flex;align-items:center;min-width:0;padding:5px 8px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;line-height:1.45;vertical-align:middle}#scheduleTable.matrix-schedule .player-roster{min-width:0}#scheduleTable.matrix-schedule .player-name{font-weight:900}.capture-image #scheduleTable.matrix-schedule .team-card{display:inline-flex!important;text-align:initial!important;overflow-wrap:normal!important;word-break:normal!important}@media(max-width:700px){#scheduleTable.matrix-schedule td.court-match .team-card{display:flex;width:100%;padding:5px 6px}#scheduleTable.matrix-schedule td.court-match .team-card.team-a{justify-content:flex-end}#scheduleTable.matrix-schedule td.court-match .team-card.team-b{justify-content:flex-start}#scheduleTable.matrix-schedule .player-name{font-size:11px}}`;
+  document.head.append(teamCardStyle);
 
   function participantCount() {
     const value = Number($('playerCount').value);
@@ -59,19 +75,23 @@
   }
   function updateRoundRecommendation() {
     const count = participantCount(), courts = courtCount();
-    const rounds = recommendedRounds(count, courts), equalRounds = equalRotationRounds(count, courts);
+    const partnerRounds = recommendedRounds(count, courts), equalRounds = equalRotationRounds(count, courts);
+    const rounds = count * (count * 3 <= 15 ? 3 : 2);
     $('playerCount').value = count;
     $('courts').value = courts;
     $('rounds').value = rounds;
     $('playerCountHint').textContent = `총 ${count}명`;
-    $('roundRecommendation').textContent = equalRounds === rounds
-      ? `파트너 순환 · 균등 출전/휴식 기준 추천 ${rounds}라운드`
-      : `파트너 순환 최소 ${rounds}라운드 · 균등 출전/휴식 최소 주기 ${equalRounds}라운드`;
+    const recommendation = $('roundRecommendation');
+    const firstLine = document.createElement('span'), secondLine = document.createElement('span');
+    firstLine.textContent = `파트너 순환 최소 ${partnerRounds}라운드 · 균등 출전/휴식 최소 주기 ${equalRounds}라운드`;
+    secondLine.textContent = '최소 주기 2~3회 진행 권장';
+    recommendation.replaceChildren(firstLine, secondLine);
   }
   function syncPlayerFields() {
     const current = [...document.querySelectorAll('[data-player-name]')].map(input => input.value);
     const count = participantCount(), fields = $('playerFields');
     fields.replaceChildren();
+    fields.style.setProperty('--player-columns', count === 5 || count % 3 === 0 ? 3 : 4);
     for (let i = 0; i < count; i++) {
       const label = document.createElement('label'), inputWrap = document.createElement('span'), inputLabel = document.createElement('span'), input = document.createElement('input');
       label.className = 'nickname-field';
@@ -81,6 +101,35 @@
       inputWrap.append(inputLabel, input); label.append(inputWrap); fields.append(label);
     }
     updateRoundRecommendation();
+  }
+  function syncPriorityControls() {
+    state.priorityOrder = state.priorityOrder.filter(key => priorityConfig.some(item => item.key === key && $(item.checkbox).checked));
+    priorityConfig.forEach(item => {
+      if ($(item.checkbox).checked && !state.priorityOrder.includes(item.key)) state.priorityOrder.push(item.key);
+    });
+    priorityConfig.forEach(item => {
+      const select = $(item.select), active = $(item.checkbox).checked;
+      select.disabled = !active;
+      if (active) select.value = String(state.priorityOrder.indexOf(item.key) + 1);
+    });
+  }
+  function updatePriorityFromCheck(key) {
+    const item = priorityConfig.find(option => option.key === key);
+    if ($(item.checkbox).checked) {
+      if (!state.priorityOrder.includes(key)) state.priorityOrder.push(key);
+    } else {
+      state.priorityOrder = state.priorityOrder.filter(existing => existing !== key);
+    }
+    syncPriorityControls();
+  }
+  function updatePriorityFromSelect(key) {
+    const item = priorityConfig.find(option => option.key === key);
+    const current = state.priorityOrder.indexOf(key);
+    const requested = Number($(item.select).value) - 1;
+    if (current >= 0 && requested >= 0 && requested < state.priorityOrder.length) {
+      [state.priorityOrder[current], state.priorityOrder[requested]] = [state.priorityOrder[requested], state.priorityOrder[current]];
+    }
+    syncPriorityControls();
   }
   function readPlayers() {
     return [...document.querySelectorAll('[data-player-name]')].map(input => input.value.trim());
@@ -95,43 +144,54 @@
   function doublesPairingKey(game) { return [pairKey(...game.teamA), pairKey(...game.teamB)].sort().join(' / '); }
   function shuffled(items) { const a = [...items]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   function streakAfter(history, player) { let n = 0; for (let r = history.length - 1; r >= 0 && history[r].includes(player); r--) n++; return n; }
+  function restStreakAfter(history, player) { let n = 0; for (let r = history.length - 1; r >= 0 && !history[r].includes(player); r--) n++; return n; }
+  function priorityValue(opts, key) { return opts.priorities?.[key] || 4; }
+  function priorityMetrics(metrics, opts) {
+    return metrics.filter(metric => opts[metric.key]).sort((a, b) => priorityValue(opts, a.key) - priorityValue(opts, b.key)).reduce((score, metric) => score * 5000 + metric.value, 0);
+  }
 
-  function choosePlayers(players, slots, history, plays, noThree) {
+  function choosePlayers(players, slots, history, plays, opts) {
     const ordered = shuffled(players).sort((a, b) => {
-      const aThird = noThree && streakAfter(history, a) >= 2 ? 1 : 0;
-      const bThird = noThree && streakAfter(history, b) >= 2 ? 1 : 0;
-      if (aThird !== bThird) return aThird - bThird;
-      const av = plays.get(a), bv = plays.get(b);
-      return av - bv || Math.random() - .5;
+      const score = player => {
+        const balance = opts.equal ? plays.get(player) * (5 - priorityValue(opts, 'equal')) * 50 : 0;
+        const playRisk = opts.noThree && streakAfter(history, player) >= 2 ? (5 - priorityValue(opts, 'noThree')) * 100000 : 0;
+        const restRelief = opts.noRest && restStreakAfter(history, player) >= 1 ? (5 - priorityValue(opts, 'noRest')) * 100000 : 0;
+        return balance + playRisk - restRelief;
+      };
+      return score(a) - score(b) || Math.random() - .5;
     });
-    const safe = ordered.filter(p => !(noThree && streakAfter(history, p) >= 2));
-    return (safe.length >= slots ? safe : ordered).slice(0, slots);
+    return ordered.slice(0, slots);
   }
   function selectionKey(selected) { return [...selected].sort().join('\u0001'); }
-  function cyclicThirdCount(history, players) {
-    let thirds = 0;
+  function cyclicStreakCount(history, players, resting = false) {
+    let repeats = 0;
     for (const player of players) {
       let run = 0;
-      for (const selected of [...history, ...history.slice(0, 2)]) {
-        run = selected.includes(player) ? run + 1 : 0;
-        if (run >= 3) thirds++;
+      const extended = [...history, ...history.slice(0, resting ? 1 : 2)];
+      for (const selected of extended) {
+        run = (resting ? !selected.includes(player) : selected.includes(player)) ? run + 1 : 0;
+        if (run >= (resting ? 2 : 3)) repeats++;
       }
     }
-    return thirds;
+    return repeats;
   }
-  function buildBalancedCycle(players, slots, cycleRounds, noThree) {
+  function buildBalancedCycle(players, slots, cycleRounds, opts) {
     let best = null, bestScore = Infinity;
     for (let attempt = 0; attempt < 160; attempt++) {
       const cyclePlays = new Map(players.map(p => [p, 0])), cycleHistory = [], selections = [];
       for (let r = 0; r < cycleRounds; r++) {
-        const selected = choosePlayers(players, slots, cycleHistory, cyclePlays, noThree);
+        const selected = choosePlayers(players, slots, cycleHistory, cyclePlays, opts);
         selected.forEach(p => cyclePlays.set(p, cyclePlays.get(p) + 1));
         cycleHistory.push(selected); selections.push(selected);
       }
       const values = players.map(p => cyclePlays.get(p));
       const spread = Math.max(...values) - Math.min(...values);
       const repeatedGroups = selections.length - new Set(selections.map(selectionKey)).size;
-      const score = repeatedGroups * 1000000 + spread * 10000 + (noThree ? cyclicThirdCount(cycleHistory, players) * 100 : 0);
+      const score = repeatedGroups * 1000000000000000 + priorityMetrics([
+        { key:'equal', value:spread },
+        { key:'noThree', value:cyclicStreakCount(cycleHistory, players) },
+        { key:'noRest', value:cyclicStreakCount(cycleHistory, players, true) }
+      ], opts);
       if (score < bestScore) { bestScore = score; best = selections; }
       if (score === 0) break;
     }
@@ -166,13 +226,13 @@
     const slots = plan.slots, plays = new Map(players.map(p => [p, 0]));
     const partnerCounts = new Map(), opponentCounts = new Map(), history = [], roundsOut = [];
     const selectionCycle = opts.repeatRestCycle
-      ? buildBalancedCycle(players, slots, opts.repeatCycleRounds, opts.noThree && players.length > slots)
+      ? buildBalancedCycle(players, slots, opts.repeatCycleRounds, opts)
       : null;
     const usedPairingsBySelection = new Map();
     for (let r = 0; r < rounds; r++) {
       const selected = selectionCycle
         ? selectionCycle[r % selectionCycle.length]
-        : choosePlayers(players, slots, history, plays, opts.noThree && players.length > slots);
+        : choosePlayers(players, slots, history, plays, opts);
       const key = selectionCycle ? selectionKey(selected) : null;
       const games = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate, key ? usedPairingsBySelection.get(key) : null);
       for (const game of games) {
@@ -191,10 +251,16 @@
   }
   function evaluate(result, players, opts) {
     const values = players.map(p => result.plays.get(p)); const spread = Math.max(...values)-Math.min(...values);
-    let third = 0, repeats = 0;
+    let third = 0, restRepeats = 0, repeats = 0;
+    for (const p of players) { let run=0; for(const row of result.history){run=!row.includes(p)?run+1:0;if(run>=2) restRepeats++;} }
     for (const p of players) { let run=0; for(const row of result.history){run=row.includes(p)?run+1:0;if(run>=3) third++;} }
     for (const v of result.partnerCounts.values()) if (v > 1) repeats += v-1;
-    return spread*10000 + (opts.noThree ? third*1000 : 0) + (opts.rotate ? repeats*5 : 0) + Math.random();
+    return priorityMetrics([
+      { key:'equal', value:spread },
+      { key:'noThree', value:third },
+      { key:'noRest', value:restRepeats },
+      { key:'rotate', value:repeats }
+    ], opts) + Math.random();
   }
   function buildSchedule(players, courts, rounds, opts) {
     let best;
@@ -202,7 +268,20 @@
     for (let i=0; i<tries; i++) { const candidate = generateOnce(players,courts,rounds,opts); if (!best || evaluate(candidate,players,opts) < evaluate(best,players,opts)) best=candidate; }
     return best;
   }
-  function maxStreak(history, p) { let run=0,max=0; for(const row of history){run=row.includes(p)?run+1:0;max=Math.max(max,run);} return max; }
+  function maxStreak(history, p, resting = false) { let run=0,max=0; for(const row of history){run=(resting ? !row.includes(p) : row.includes(p))?run+1:0;max=Math.max(max,run);} return max; }
+  function teamCard(members, side, playerTones) {
+    const card = document.createElement('span'), roster = document.createElement('span');
+    card.className = `team-card team-${side}`;
+    roster.className = 'player-roster';
+    members.forEach((player, index) => {
+      if (index) roster.append(document.createTextNode(', '));
+      const name = document.createElement('span');
+      name.className = 'player-name'; name.style.color = playerTones.get(player);
+      name.textContent = player; roster.append(name);
+    });
+    card.append(roster);
+    return card;
+  }
   function render(result, players, settings) {
     $('scheduleTitle').textContent = '🏸 배드민턴 경기 대진표';
     const games = result.rounds[0].games.length;
@@ -218,25 +297,24 @@
     const headerLabels = games === 1 ? ['라운드', '대진', '휴식 / 대기'] : ['라운드', ...courtLabels];
     headerLabels.forEach(label => { const th = document.createElement('th'); th.textContent = label; header.append(th); });
     const tbody = scheduleTable.querySelector('tbody'); tbody.replaceChildren();
+    const playerTones = new Map(players.map((player, index) => [player, `hsl(${(index * 47 + 200) % 360} 72% 34%)`]));
     result.rounds.forEach((round, ri) => {
       const tr = document.createElement('tr');
       const roundCell = document.createElement('td'); roundCell.className = 'round'; roundCell.textContent = `${ri + 1}R`;
       if (games > 1 && round.resting.length) { const rest = document.createElement('small'); rest.className = 'round-rest'; rest.textContent = `휴식: ${round.resting.join(', ')}`; roundCell.append(rest); }
       tr.append(roundCell);
       round.games.forEach((game, gi) => {
-        const cell = document.createElement('td'), teamA = document.createElement('span'), versus = document.createElement('span'), teamB = document.createElement('span');
+        const cell = document.createElement('td'), versus = document.createElement('span');
         cell.className = `court-match${games === 1 ? ' only-court' : ''}`; cell.dataset.court = `${gi + 1}코트${game.type === 'singles' ? ' · 단식' : ''}`;
-        teamA.className = 'team-a'; teamA.textContent = game.teamA.join(', ');
         versus.className = 'match-vs'; versus.textContent = 'vs';
-        teamB.className = 'team-b'; teamB.textContent = game.teamB.join(', ');
-        cell.append(teamA, versus, teamB); tr.append(cell);
+        cell.append(teamCard(game.teamA, 'a', playerTones), versus, teamCard(game.teamB, 'b', playerTones)); tr.append(cell);
       });
       if (games === 1) { const restCell = document.createElement('td'); restCell.className = 'single-rest'; restCell.textContent = round.resting.join(', ') || '대기자 없음'; tr.append(restCell); }
       tbody.append(tr);
     });
     const verify = $('verifyTable').querySelector('tbody'); verify.replaceChildren();
     const playValues=players.map(p=>result.plays.get(p)); const equal = Math.max(...playValues)-Math.min(...playValues)<=1;
-    players.forEach(p => { const streak=maxStreak(result.history,p), partners=[...result.partnerCounts.keys()].filter(k=>k.split('|').includes(p)).length; const status=streak<=2?'정상':'3연속 발생'; const cls=streak<=2?'status-ok':'status-alert'; const tr=document.createElement('tr'); [[p,''],[`${result.plays.get(p)}회`,''],[`${settings.rounds - result.plays.get(p)}회`,''],[`${streak}회`,streak<=2?'':'status-alert'],[`${partners}명`,''],[status,cls]].forEach(([t,c])=>{const td=document.createElement('td');td.textContent=t;td.className=c;tr.append(td)});verify.append(tr); });
+    players.forEach(p => { const streak=maxStreak(result.history,p), restStreak=maxStreak(result.history,p,true), partners=[...result.partnerCounts.keys()].filter(k=>k.split('|').includes(p)).length; const issue=settings.noThree&&streak>2 ? '3연속 출전' : settings.noRest&&restStreak>1 ? '연속 휴식' : ''; const tr=document.createElement('tr'); [[p,''],[`${result.plays.get(p)}회`,''],[`${settings.rounds - result.plays.get(p)}회`,''],[`${streak}회`,streak<=2?'':'status-alert'],[`${restStreak}회`,restStreak<=1?'':'status-alert'],[`${partners}명`,''],[issue||'정상',issue?'status-alert':'status-ok']].forEach(([t,c])=>{const td=document.createElement('td');td.textContent=t;td.className=c;tr.append(td)});verify.append(tr); });
     const warnings=[];
     if (result.plan.doubles < settings.courts) {
       const setup = result.plan.singles
@@ -246,6 +324,7 @@
     }
     if (settings.noThree && players.length<=result.plan.slots) warnings.push('모든 참가자가 매 라운드 출전하므로 3연속 출전을 피할 수 없습니다.');
     if (settings.noThree && players.length>result.plan.slots && players.some(p=>maxStreak(result.history,p)>=3)) warnings.push('인원·라운드 조건상 일부 3연속 출전이 발생했습니다.');
+    if (settings.noRest && players.length>result.plan.slots && players.some(p=>maxStreak(result.history,p,true)>=2)) warnings.push('인원·라운드 조건상 일부 연속 휴식이 발생했습니다.');
     if (settings.equal && !equal) warnings.push('출전 횟수 차이가 1회를 초과했습니다. 라운드를 늘리거나 조건을 조정해 주세요.');
     const report=$('constraintReport'); const doublesUnavailable=result.plan.doubles<settings.courts; report.className=`report ${warnings.length?'warning':''}${doublesUnavailable?' singles-warning':''}`; report.textContent=warnings.length ? `${doublesUnavailable ? '' : '확인 필요: '}${warnings.join(' ')}` : '검증 완료: 출전 횟수는 균등하게 배분되었고, 적용 가능한 연속 출전 조건을 확인했습니다.';
     state.schedule=result; state.settings=settings; $('results').classList.remove('hidden'); $('results').scrollIntoView({behavior:'smooth',block:'start'});
@@ -259,7 +338,7 @@
     if (!Number.isInteger(rounds)||rounds<1) { notice.className='notice error';notice.textContent='라운드 수를 올바른 정수로 입력해 주세요.';return; }
     notice.className='notice hidden'; notice.textContent='';
     const equalRounds = equalRotationRounds(players.length, courts), plan = courtPlan(players.length, courts);
-    const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,rotate:$('rotatePartners').checked,repeatRestCycle:plan.doubles===1&&plan.singles===0&&players.length>plan.slots&&rounds>=equalRounds*2&&rounds%equalRounds===0,repeatCycleRounds:equalRounds};
+    const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,noRest:$('noConsecutiveRest').checked,rotate:$('rotatePartners').checked,priorities:{equal:Number($('priorityEqual').value),noThree:Number($('priorityNoThree').value),noRest:Number($('priorityNoRest').value),rotate:Number($('priorityRotate').value)},repeatRestCycle:plan.doubles===1&&plan.singles===0&&players.length>plan.slots&&rounds>=equalRounds*2&&rounds%equalRounds===0,repeatCycleRounds:equalRounds};
     render(buildSchedule(players,courts,rounds,settings),players,settings);
   }
   function scheduleText() {
@@ -294,6 +373,11 @@
   // 코트 수도 여러 자리 값을 입력하는 동안에는 즉시 보정하지 않습니다.
   $('courts').addEventListener('change',updateRoundRecommendation);
   $('courts').addEventListener('blur',updateRoundRecommendation);
+  priorityConfig.forEach(item => {
+    $(item.checkbox).addEventListener('change', () => updatePriorityFromCheck(item.key));
+    $(item.select).addEventListener('change', () => updatePriorityFromSelect(item.key));
+  });
+  syncPriorityControls();
   syncPlayerFields();
   $('generate').addEventListener('click',generate);
   $('imageBtn').addEventListener('click',downloadImage);
