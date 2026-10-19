@@ -14,12 +14,11 @@
   };
   const recommendedGamesPerPlayer = 6;
   const randomNickname = (() => {
-    const starts = ['콕콩','스매시','하이','드롭','셔틀','라켓','네트','백','클리어','헤어핀','드라이브','푸시','리시브','점프','민턴','콕'];
-    const ends = ['고수','왕','러너','스타','러버','킬러','마스터','챔프','플레이어','요정','폭격기','수비수','번개','친구','코치','메이트'];
+    const nicknames = ['민턴','콕콩','스매시','하이','드롭','셔틀','라켓','네트','백핸드','클리어','헤어핀','푸시','점프','리시브','서브','스핀','콕수','콕돌','콕별','셔링','하별','콕곰','콕새'];
     const used = new Set();
     return () => {
-      let nickname;
-      do { nickname = `${starts[Math.floor(Math.random() * starts.length)]}${ends[Math.floor(Math.random() * ends.length)]}`; } while (used.has(nickname));
+      const available = nicknames.filter(nickname => !used.has(nickname));
+      const nickname = available[Math.floor(Math.random() * available.length)];
       used.add(nickname);
       return nickname;
     };
@@ -44,8 +43,11 @@
   imageLayoutStyle.textContent = `.schedule-capture.capture-image{width:900px;max-width:none;padding:26px 28px}.capture-image .schedule-head{display:flex!important}.capture-image .table-shell{overflow:visible!important;border:1px solid #e4ecf1!important;background:#fff!important}.capture-image #scheduleTable.matrix-schedule{display:table!important;width:100%!important;min-width:0!important;font-size:12px}.capture-image #scheduleTable.matrix-schedule thead{display:table-header-group!important}.capture-image #scheduleTable.matrix-schedule tbody{display:table-row-group!important}.capture-image #scheduleTable.matrix-schedule tr{display:table-row!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important}.capture-image #scheduleTable.matrix-schedule th,.capture-image #scheduleTable.matrix-schedule td{display:table-cell!important;min-height:0!important;padding:8px 10px!important;border:0!important;border-top:1px solid #edf2f5!important;vertical-align:middle!important}.capture-image #scheduleTable.matrix-schedule th{border-top:0!important}.capture-image #scheduleTable.matrix-schedule td.round{width:86px!important}.capture-image #scheduleTable.matrix-schedule td.court-match{line-height:1.45!important}.capture-image #scheduleTable.matrix-schedule td.court-match:before{display:none!important}.capture-image #scheduleTable.matrix-schedule .team-a,.capture-image #scheduleTable.matrix-schedule .team-b{display:inline!important;text-align:initial!important;overflow-wrap:normal!important;word-break:normal!important}.capture-image #scheduleTable.matrix-schedule .match-vs{display:inline!important;margin:0 6px!important}.capture-image #scheduleTable.matrix-schedule .single-rest{display:table-cell!important;background:transparent!important}`;
   document.head.append(imageLayoutStyle);
   const teamCardStyle = document.createElement('style');
-  teamCardStyle.textContent = `#scheduleTable.matrix-schedule .team-card{display:inline-flex;align-items:center;min-width:0;padding:5px 8px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;line-height:1.45;vertical-align:middle}#scheduleTable.matrix-schedule .player-roster{min-width:0}#scheduleTable.matrix-schedule .player-name{font-weight:900}.capture-image #scheduleTable.matrix-schedule .team-card{display:inline-flex!important;text-align:initial!important;overflow-wrap:normal!important;word-break:normal!important}@media(max-width:700px){#scheduleTable.matrix-schedule td.court-match .team-card{display:flex;width:100%;padding:5px 6px}#scheduleTable.matrix-schedule td.court-match .team-card.team-a{justify-content:flex-end}#scheduleTable.matrix-schedule td.court-match .team-card.team-b{justify-content:flex-start}#scheduleTable.matrix-schedule .player-name{font-size:11px}}`;
+  teamCardStyle.textContent = `#scheduleTable.matrix-schedule .team-card{display:inline;min-width:0;padding:0;border:0;border-radius:0;background:transparent;color:#475569!important;line-height:1.45;vertical-align:middle}#scheduleTable.matrix-schedule .player-roster{min-width:0}#scheduleTable.matrix-schedule .player-name{color:inherit!important;font-weight:900}#scheduleTable.matrix-schedule td.court-match.only-court{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;column-gap:10px}#scheduleTable.matrix-schedule td.court-match.only-court .team-a{text-align:right}#scheduleTable.matrix-schedule td.court-match.only-court .team-b{text-align:left}.capture-image #scheduleTable.matrix-schedule .team-card{display:inline!important;text-align:initial!important;overflow-wrap:normal!important;word-break:normal!important}#scheduleTable.matrix-schedule td.single-rest{text-align:left}@media(max-width:700px){#scheduleTable.matrix-schedule td.court-match .team-card{display:block;width:auto;padding:0}#scheduleTable.matrix-schedule .player-name{font-size:11px}#scheduleTable.matrix-schedule td.single-rest{text-align:center}}`;
   document.head.append(teamCardStyle);
+  const singleCourtCardStyle = document.createElement('style');
+  singleCourtCardStyle.textContent = `#scheduleTable.single-court-card-grid{display:block;min-width:0;border:0;border-collapse:separate;background:transparent}#scheduleTable.single-court-card-grid thead{display:none}#scheduleTable.single-court-card-grid tbody{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}#scheduleTable.single-court-card-grid tr{display:grid;grid-template-columns:1fr;overflow:hidden;border:1px solid #cfe8fb;border-radius:10px;background:#fff;box-shadow:0 3px 9px #0f172a0a}#scheduleTable.single-court-card-grid td{min-height:0;padding:9px 8px;border:0}#scheduleTable.single-court-card-grid td.round{grid-column:1/-1;width:auto;background:linear-gradient(135deg,#e0f2fe,#eff6ff);color:#1e3a5f;font-size:13px;text-align:center}#scheduleTable.single-court-card-grid td.court-match.only-court{grid-column:1/-1;padding:11px 8px;column-gap:7px}#scheduleTable.single-court-card-grid .player-roster{display:flex;flex-direction:column;gap:2px}#scheduleTable.single-court-card-grid .team-a .player-roster{align-items:flex-end}#scheduleTable.single-court-card-grid .team-b .player-roster{align-items:flex-start}#scheduleTable.single-court-card-grid .player-separator{display:none}#scheduleTable.single-court-card-grid td.single-rest{grid-column:1/-1;min-height:35px;padding:7px 8px;border-top:1px solid #edf2f7;color:#64748b;font-size:11px;text-align:center}.capture-image #scheduleTable.single-court-card-grid{display:block!important;font-size:11px!important}.capture-image #scheduleTable.single-court-card-grid thead{display:none!important}.capture-image #scheduleTable.single-court-card-grid tbody{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important;padding:0!important}.capture-image #scheduleTable.single-court-card-grid tr{display:grid!important;grid-template-columns:1fr!important;overflow:hidden!important;border:1px solid #cfe8fb!important;border-radius:9px!important;background:#fff!important}.capture-image #scheduleTable.single-court-card-grid td{display:block!important;min-height:0!important;padding:7px 6px!important;border:0!important}.capture-image #scheduleTable.single-court-card-grid td.round{width:auto!important;background:#e0f2fe!important;text-align:center!important}.capture-image #scheduleTable.single-court-card-grid td.court-match.only-court{display:grid!important;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)!important;column-gap:4px!important}.capture-image #scheduleTable.single-court-card-grid td.single-rest{display:block!important;padding:5px 6px!important;border-top:1px solid #edf2f7!important;text-align:center!important}@media(max-width:700px){#scheduleTable.single-court-card-grid tbody{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}#scheduleTable.single-court-card-grid td.round{font-size:12px}#scheduleTable.single-court-card-grid td.court-match.only-court{padding:10px 6px;column-gap:5px}#scheduleTable.single-court-card-grid td.single-rest{font-size:10px}.capture-image #scheduleTable.single-court-card-grid tbody{grid-template-columns:repeat(4,minmax(0,1fr))!important}}`;
+  document.head.append(singleCourtCardStyle);
 
   function participantCount() {
     const value = Number($('playerCount').value);
@@ -384,14 +386,18 @@
     return best;
   }
   function maxStreak(history, p, resting = false) { let run=0,max=0; for(const row of history){run=(resting ? !row.includes(p) : row.includes(p))?run+1:0;max=Math.max(max,run);} return max; }
-  function teamCard(members, side, playerTones) {
+  function teamCard(members, side) {
     const card = document.createElement('span'), roster = document.createElement('span');
     card.className = `team-card team-${side}`;
     roster.className = 'player-roster';
     members.forEach((player, index) => {
-      if (index) roster.append(document.createTextNode(', '));
+      if (index) {
+        const separator = document.createElement('span');
+        separator.className = 'player-separator'; separator.textContent = ', ';
+        roster.append(separator);
+      }
       const name = document.createElement('span');
-      name.className = 'player-name'; name.style.color = playerTones.get(player);
+      name.className = 'player-name';
       name.textContent = player; roster.append(name);
     });
     card.append(roster);
@@ -405,14 +411,14 @@
     const repeatRestLabel = settings.repeatRestCycle ? ' · 휴식 순서 반복' : '';
     $('overview').textContent = `참석 ${players.length}명 · ${settings.courts}코트 중 ${games}코트 사용 · ${format}${repeatRestLabel} · ${settings.rounds}라운드 · 1인 평균 ${avg}게임`;
     const scheduleTable = $('scheduleTable');
-    scheduleTable.classList.remove('single-court', 'multi-court');
+    scheduleTable.classList.remove('single-court', 'multi-court', 'single-court-card-grid');
     scheduleTable.classList.add('matrix-schedule');
+    if (games === 1) scheduleTable.classList.add('single-court-card-grid');
     const header = scheduleTable.querySelector('thead tr'); header.replaceChildren();
     const courtLabels = result.rounds[0].games.map((game, index) => `${index + 1}코트${game.type === 'singles' ? ' · 단식' : ''}`);
     const headerLabels = games === 1 ? ['라운드', '대진', '휴식 / 대기'] : ['라운드', ...courtLabels];
     headerLabels.forEach(label => { const th = document.createElement('th'); th.textContent = label; header.append(th); });
     const tbody = scheduleTable.querySelector('tbody'); tbody.replaceChildren();
-    const playerTones = new Map(players.map((player, index) => [player, `hsl(${(index * 47 + 200) % 360} 72% 34%)`]));
     result.rounds.forEach((round, ri) => {
       const tr = document.createElement('tr');
       const roundCell = document.createElement('td'); roundCell.className = 'round'; roundCell.textContent = `${ri + 1}R`;
@@ -422,7 +428,7 @@
         const cell = document.createElement('td'), versus = document.createElement('span');
         cell.className = `court-match${games === 1 ? ' only-court' : ''}`; cell.dataset.court = `${gi + 1}코트${game.type === 'singles' ? ' · 단식' : ''}`;
         versus.className = 'match-vs'; versus.textContent = 'vs';
-        cell.append(teamCard(game.teamA, 'a', playerTones), versus, teamCard(game.teamB, 'b', playerTones)); tr.append(cell);
+        cell.append(teamCard(game.teamA, 'a'), versus, teamCard(game.teamB, 'b')); tr.append(cell);
       });
       if (games === 1) { const restCell = document.createElement('td'); restCell.className = 'single-rest'; restCell.textContent = round.resting.join(', ') || '대기자 없음'; tr.append(restCell); }
       tbody.append(tr);
