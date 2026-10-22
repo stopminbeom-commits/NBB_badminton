@@ -212,7 +212,7 @@
     }
     return best;
   }
-  function makeRound(selected, doubleCourts, singleCourts, partnerCounts, opponentCounts, rotate, avoidedPairings = null) {
+  function makeRound(selected, doubleCourts, singleCourts, partnerCounts, opponentCounts, rotate, avoidedPairings = null, previousPartnerPairs = null) {
     let best = null, bestCost = Infinity;
     const patterns = [[0,1,2,3],[0,2,1,3],[0,3,1,2]];
     for (let trial = 0; trial < 70; trial++) {
@@ -224,17 +224,81 @@
           const [a,b,c,d] = p.map(i => four[i]);
           const candidate = { type:'doubles', teamA:[a,b], teamB:[c,d] };
           const repeatPenalty = avoidedPairings && doubleCourts === 1 && avoidedPairings.has(doublesPairingKey(candidate)) ? 100000 : 0;
-          const cost = (rotate ? 8 * (count(partnerCounts,a,b) + count(partnerCounts,c,d)) + count(opponentCounts,a,c) + count(opponentCounts,a,d) + count(opponentCounts,b,c) + count(opponentCounts,b,d) : 0) + repeatPenalty;
+          const adjacentPenalty = previousPartnerPairs ? [...partnerPairSet(candidate)].filter(pair => previousPartnerPairs.has(pair)).length * 100000000 : 0;
+          const cost = (rotate ? 8 * (count(partnerCounts,a,b) + count(partnerCounts,c,d)) + count(opponentCounts,a,c) + count(opponentCounts,a,d) + count(opponentCounts,b,c) + count(opponentCounts,b,d) : 0) + repeatPenalty + adjacentPenalty;
           if (cost < low) { low = cost; choice = p; }
         }
         const [a,b,c,d] = choice.map(i => four[i]); games.push({ type:'doubles', teamA:[a,b], teamB:[c,d] });
       }
       for (let g = 0; g < singleCourts; g++) { const [a,b] = order.slice(doubleCourts * 4 + g * 2, doubleCourts * 4 + g * 2 + 2); games.push({ type:'singles', teamA:[a], teamB:[b] }); }
       const doubles = games.filter(g => g.type === 'doubles');
-      const cost = doubles.reduce((sum,g) => sum + (rotate ? 8*(count(partnerCounts,...g.teamA)+count(partnerCounts,...g.teamB)) + g.teamA.reduce((s,a)=>s+g.teamB.reduce((t,b)=>t+count(opponentCounts,a,b),0),0) : 0), 0) + (avoidedPairings && doubles[0] && avoidedPairings.has(doublesPairingKey(doubles[0])) ? 100000 : 0);
+      const adjacentPenalty = previousPartnerPairs ? doubles.reduce((sum, game) => sum + [...partnerPairSet(game)].filter(pair => previousPartnerPairs.has(pair)).length * 100000000, 0) : 0;
+      const cost = doubles.reduce((sum,g) => sum + (rotate ? 8*(count(partnerCounts,...g.teamA)+count(partnerCounts,...g.teamB)) + g.teamA.reduce((s,a)=>s+g.teamB.reduce((t,b)=>t+count(opponentCounts,a,b),0),0) : 0), 0) + (avoidedPairings && doubles[0] && avoidedPairings.has(doublesPairingKey(doubles[0])) ? 100000 : 0) + adjacentPenalty;
       if (cost < bestCost) { bestCost = cost; best = games; }
     }
     return best;
+  }
+  function gameFromPattern(selected, pattern) {
+    const [a, b, c, d] = pattern.map(index => selected[index]);
+    return { type:'doubles', teamA:[a, b], teamB:[c, d] };
+  }
+  function partnerPairSet(game) {
+    if (game.type !== 'doubles') return new Set();
+    return new Set([pairKey(...game.teamA), pairKey(...game.teamB)]);
+  }
+  function gamesPartnerPairSet(games) {
+    return new Set(games.flatMap(game => [...partnerPairSet(game)]));
+  }
+  function patternOrders(length) {
+    const patterns = [[0,1,2,3], [0,2,1,3], [0,3,1,2]], orders = [];
+    const visit = (picked, remaining) => {
+      if (picked.length === length) { orders.push(picked); return; }
+      remaining.forEach((pattern, index) => visit([...picked, pattern], [...remaining.slice(0, index), ...remaining.slice(index + 1)]));
+    };
+    visit([], patterns);
+    return orders;
+  }
+  function repeatCycleScore(games, players) {
+    const partners = new Map(), opponents = new Map(); let adjacentRepeats = 0, repeats = 0;
+    games.forEach((game, round) => {
+      if (round) {
+        const previous = partnerPairSet(games[round - 1]);
+        partnerPairSet(game).forEach(pair => { if (previous.has(pair)) adjacentRepeats++; });
+      }
+      addGameCounts(game, partners, opponents);
+    });
+    partners.forEach(value => { if (value > 1) repeats += value - 1; });
+    let missingPartners = 0, missingOpponents = 0;
+    for (let i = 0; i < players.length; i++) for (let j = i + 1; j < players.length; j++) {
+      if (!count(partners, players[i], players[j])) missingPartners++;
+      if (!count(opponents, players[i], players[j])) missingOpponents++;
+    }
+    // 인접 라운드의 같은 파트너를 최우선으로 제거하고, 그 다음 전체 순환을 비교합니다.
+    return adjacentRepeats * 1000000000000 + missingPartners * 100000000 + missingOpponents * 1000000 + repeats;
+  }
+  function buildRepeatedRestCycleSchedule(players, selections, rounds, plan) {
+    const cycles = rounds / selections.length;
+    if (!Number.isInteger(cycles) || cycles > 3) return null;
+    const orders = patternOrders(cycles); let bestGames = null, bestScore = Infinity;
+    const search = (group, chosen) => {
+      if (group === selections.length) {
+        const games = Array.from({ length: rounds }, (_, round) => gameFromPattern(selections[round % selections.length], chosen[round % selections.length][Math.floor(round / selections.length)]));
+        const score = repeatCycleScore(games, players);
+        if (score < bestScore) { bestScore = score; bestGames = games; }
+        return;
+      }
+      orders.forEach(order => search(group + 1, [...chosen, order]));
+    };
+    search(0, []);
+    if (!bestGames) return null;
+    const plays = new Map(players.map(player => [player, 0])), partnerCounts = new Map(), opponentCounts = new Map(), history = [];
+    const roundsOut = bestGames.map(game => {
+      const selected = [...game.teamA, ...game.teamB];
+      selected.forEach(player => plays.set(player, plays.get(player) + 1));
+      addGameCounts(game, partnerCounts, opponentCounts); history.push(selected);
+      return { games:[game], resting:players.filter(player => !selected.includes(player)) };
+    });
+    return { rounds:roundsOut, plays, history, partnerCounts, opponentCounts, plan };
   }
   function addGameCounts(game, partnerCounts, opponentCounts) {
     if (game.type === 'doubles') { add(partnerCounts, ...game.teamA); add(partnerCounts, ...game.teamB); }
@@ -333,13 +397,18 @@
     const selectionCycle = opts.repeatRestCycle
       ? buildBalancedCycle(players, slots, opts.repeatCycleRounds, opts)
       : null;
+    const rotatedCycle = selectionCycle && plan.doubles === 1 && plan.singles === 0
+      ? buildRepeatedRestCycleSchedule(players, selectionCycle, rounds, plan)
+      : null;
+    if (rotatedCycle) return rotatedCycle;
     const usedPairingsBySelection = new Map();
     for (let r = 0; r < rounds; r++) {
       const selected = selectionCycle
         ? selectionCycle[r % selectionCycle.length]
         : choosePlayers(players, slots, history, plays, opts, partnerCounts, opponentCounts);
       const key = selectionCycle ? selectionKey(selected) : null;
-      const games = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate, key ? usedPairingsBySelection.get(key) : null);
+      const previousPartnerPairs = roundsOut.length ? gamesPartnerPairSet(roundsOut[roundsOut.length - 1].games) : null;
+      const games = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate, key ? usedPairingsBySelection.get(key) : null, previousPartnerPairs);
       for (const game of games) {
         addGameCounts(game, partnerCounts, opponentCounts);
       }
@@ -380,6 +449,7 @@
   function buildSchedule(players, courts, rounds, opts) {
     const plan = courtPlan(players.length, courts);
     if (players.length === 8 && plan.doubles === 1 && plan.singles === 0 && opts.rotate && rounds >= 14) return generateOnce(players, courts, rounds, opts);
+    if (opts.repeatRestCycle) return generateOnce(players, courts, rounds, opts);
     let best;
     const tries = Math.min(320, Math.max(100, players.length * 12));
     for (let i=0; i<tries; i++) { const candidate = generateOnce(players,courts,rounds,opts); if (!best || evaluate(candidate,players,opts) < evaluate(best,players,opts)) best=candidate; }
