@@ -54,7 +54,7 @@
 </label>
 <fieldset class="constraints field-wide">
 <legend>적용 조건</legend>
-<p class="constraint-help">체크한 순서대로 우선순위가 정해집니다. 순위를 바꾸면 해당 조건과 순서가 서로 바뀝니다.</p>
+          <p class="constraint-help">체크한 순서대로 우선순위가 정해집니다. 순위를 바꾸면 해당 조건과 순서가 서로 바뀝니다. 휴식 순환은 연속 휴식과 같은 휴식 조합의 반복을 함께 줄입니다.</p>
 <div class="constraint-list">
 <label class="constraint-option">
 <input id="equalPlay" type="checkbox" checked>
@@ -88,8 +88,8 @@
 </label>
 <label class="constraint-option">
 <input id="noConsecutiveRest" type="checkbox" checked>
-<span>연속 휴식 지양</span>
-<select id="priorityNoRest" aria-label="연속 휴식 지양 우선순위">
+<span>휴식 순환</span>
+<select id="priorityNoRest" aria-label="휴식 순환 우선순위">
 <option value="1">1순위</option>
 <option value="2">2순위</option>
 <option value="3">3순위</option>
@@ -175,6 +175,7 @@
 <th>최장 연속 출전</th>
 <th>최장 연속 휴식</th>
 <th>파트너 수</th>
+<th>상대 수</th>
 <th>상태</th>
 </tr>
 </thead>

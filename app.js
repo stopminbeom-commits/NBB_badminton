@@ -7,6 +7,11 @@
     { key: 'rotate', checkbox: 'rotatePartners', select: 'priorityRotate' },
     { key: 'noRest', checkbox: 'noConsecutiveRest', select: 'priorityNoRest' }
   ];
+  const recommendedPriorityOrder = count => {
+    if (count === 5) return ['rotate', 'equal', 'noRest'];
+    if (count === 6) return ['rotate', 'equal', 'noRest', 'noThree'];
+    return ['rotate', 'equal', 'noThree', 'noRest'];
+  };
   const state = {
     schedule: null,
     settings: null,
@@ -102,7 +107,13 @@
       input.value = current[i] ?? initialNames[i] ?? '';
       inputWrap.append(inputLabel, input); label.append(inputWrap); fields.append(label);
     }
+    applyRecommendedPriorities(count);
     updateRoundRecommendation();
+  }
+  function applyRecommendedPriorities(count) {
+    state.priorityOrder = recommendedPriorityOrder(count);
+    priorityConfig.forEach(item => { $(item.checkbox).checked = state.priorityOrder.includes(item.key); });
+    syncPriorityControls();
   }
   function syncPriorityControls() {
     state.priorityOrder = state.priorityOrder.filter(key => priorityConfig.some(item => item.key === key && $(item.checkbox).checked));
@@ -159,6 +170,21 @@
     }
     return load;
   }
+  function restPairLoad(players, selected, history) {
+    const resting = players.filter(player => !selected.includes(player)); let repeats = 0;
+    for (let i = 0; i < resting.length; i++) for (let j = i + 1; j < resting.length; j++) {
+      for (const previous of history) if (!previous.includes(resting[i]) && !previous.includes(resting[j])) repeats++;
+    }
+    return repeats;
+  }
+  function restPairRepeatCount(players, history) {
+    const counts = new Map();
+    for (const selected of history) {
+      const resting = players.filter(player => !selected.includes(player));
+      for (let i = 0; i < resting.length; i++) for (let j = i + 1; j < resting.length; j++) add(counts, resting[i], resting[j]);
+    }
+    return [...counts.values()].reduce((total, value) => total + Math.max(0, value - 1), 0);
+  }
   function choosePlayers(players, slots, history, plays, opts, partnerCounts = new Map(), opponentCounts = new Map()) {
     let best = null, bestScore = Infinity;
     const candidates = players.length <= 10 ? 64 : 36;
@@ -173,6 +199,8 @@
         if (opts.noRest && restRun >= 1) score -= (5 - priorityValue(opts, 'noRest')) * 100000 * restRun * restRun;
       }
       if (opts.rotate) score += relationshipLoad(selected, partnerCounts, opponentCounts) * (5 - priorityValue(opts, 'rotate')) * 500;
+      // 휴식 순환: 같은 휴식 조합이 반복되는 경우를 줄여 대기 인원도 고르게 섞습니다.
+      if (opts.noRest) score += restPairLoad(players, selected, history) * (5 - priorityValue(opts, 'noRest')) * 300000;
       if (score < bestScore || (score === bestScore && Math.random() < .5)) { best = selected; bestScore = score; }
     }
     return best;
@@ -442,7 +470,7 @@
     return priorityMetrics([
       { key:'equal', value:spread },
       { key:'noThree', value:third },
-      { key:'noRest', value:longestRest > 1 ? (longestRest - 1) * 100000 + restRepeats : 0 },
+      { key:'noRest', value:restPairRepeatCount(players, result.history) * 10000000 + (longestRest > 1 ? (longestRest - 1) * 100000 + restRepeats : 0) },
       { key:'rotate', value:missingPartners * 10000 + missingOpponents * 100 + repeats }
     ], opts) + Math.random();
   }
