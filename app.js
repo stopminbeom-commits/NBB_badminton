@@ -618,6 +618,7 @@
     $('roundProgress').textContent = `완료 ${state.completed.filter(Boolean).length} / ${result.rounds.length}라운드`;
     $('results').classList.remove('hidden'); if (scroll) $('results').scrollIntoView({behavior:'smooth',block:'start'});
   }
+  let pendingGeneration = null;
   function generate() {
     const players=readPlayers(), validation=validateNames(players), notice=$('nicknameNotice');
     const blankIndex=players.findIndex(name => !name);
@@ -628,10 +629,16 @@
     notice.className='notice hidden'; notice.textContent='';
     const equalRounds = equalRotationRounds(players.length, courts), plan = courtPlan(players.length, courts);
     const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,noRest:$('noConsecutiveRest').checked,rotate:$('rotatePartners').checked,priorities:{equal:Number($('priorityEqual').value),noThree:Number($('priorityNoThree').value),noRest:Number($('priorityNoRest').value),rotate:Number($('priorityRotate').value)},repeatRestCycle:players.length===5&&plan.doubles===1&&plan.singles===0&&rounds>=equalRounds*2&&rounds%equalRounds===0,repeatCycleRounds:equalRounds};
-    if (storageRead(savedScheduleKey) && !window.confirm('새 대진표를 만들면 저장된 대진표와 완료 기록이 새 대진표로 바뀝니다. 계속할까요?')) return;
-    const result = buildSchedule(players,courts,rounds,settings);
-    state.completed = result.rounds.map(() => false);
-    render(result,players,settings); saveSetup(); saveSchedule();
+    const create = () => {
+      const result = buildSchedule(players,courts,rounds,settings);
+      state.completed = result.rounds.map(() => false);
+      render(result,players,settings); saveSetup(); saveSchedule();
+    };
+    if (storageRead(savedScheduleKey)) {
+      const dialog = $('replaceDialog');
+      if (dialog.open) return;
+      pendingGeneration = create; dialog.returnValue = 'cancel'; dialog.showModal();
+    } else create();
   }
   function scheduleText() {
     const s = state.schedule, set = state.settings;
@@ -677,6 +684,10 @@
   document.querySelector('.setup-panel').addEventListener('change', saveSetup);
   document.querySelector('.setup-panel').addEventListener('input', saveSetup);
   $('loadSchedule').addEventListener('click', () => { loadSchedule(); saveSetup(); });
+  $('replaceDialog').addEventListener('close', () => {
+    const create = pendingGeneration; pendingGeneration = null;
+    if ($('replaceDialog').returnValue === 'confirm' && create) create();
+  });
   $('generate').addEventListener('click',generate);
   $('imageBtn').addEventListener('click',downloadImage);
   $('copyBtn').addEventListener('click',async e=>{try{await navigator.clipboard.writeText(scheduleText());e.currentTarget.textContent='복사 완료';setTimeout(()=>e.currentTarget.textContent='텍스트 복사',1500)}catch{window.prompt('아래 내용을 복사해 주세요.',scheduleText())}});

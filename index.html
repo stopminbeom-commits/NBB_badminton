@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261030-mobile-names-size">
+<link rel="stylesheet" href="styles.css?v=20261030-confirm-dialog">
 </head>
 <body>
 <div class="app-shell">
@@ -116,6 +116,16 @@
 <p id="saveStatus" class="save-status" aria-live="polite">설정과 대진표는 이 브라우저에 저장됩니다.</p>
 <button id="loadSchedule" class="secondary hidden" type="button">저장된 대진표 불러오기</button>
 </section>
+<dialog id="replaceDialog" class="confirm-dialog" aria-labelledby="replaceTitle" aria-describedby="replaceMessage">
+  <form method="dialog">
+    <h2 id="replaceTitle">새 대진표를 만들까요?</h2>
+    <p id="replaceMessage">새 대진표를 만들면 저장된 대진표와 완료 기록이 새 대진표로 바뀝니다.</p>
+    <div class="confirm-actions">
+      <button class="secondary" type="submit" value="cancel" autofocus>취소</button>
+      <button class="primary" type="submit" value="confirm">새 대진표 만들기</button>
+    </div>
+  </form>
+</dialog>
 <section id="results" class="results hidden" aria-live="polite">
   <!-- 이미지 저장 시 제목·대진표만 캡처하고, 검증표는 제외합니다. -->
   <div id="scheduleCapture" class="schedule-capture">
@@ -194,7 +204,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js">
 </script>
-<script src="app.js?v=20261030-round-progress">
+<script src="app.js?v=20261030-confirm-dialog">
 </script>
 </body>
 </html>
