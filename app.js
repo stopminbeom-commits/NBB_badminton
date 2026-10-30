@@ -15,6 +15,8 @@
   const state = {
     schedule: null,
     settings: null,
+    players: null,
+    completed: [],
     priorityOrder: priorityConfig.filter(item => $(item.checkbox).checked).map(item => item.key)
   };
   const recommendedGamesPerPlayer = 6;
@@ -501,7 +503,57 @@
     card.append(roster);
     return card;
   }
-  function render(result, players, settings) {
+  const savedScheduleKey = 'kokmatch.schedule.v1';
+  const savedSetupKey = 'kokmatch.setup.v1';
+  function storageWrite(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch { $('saveStatus').textContent = '저장할 수 없습니다. 브라우저 저장 공간이나 설정을 확인해 주세요.'; return false; }
+  }
+  function storageRead(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch { return null; }
+  }
+  function saveSetup() {
+    const count = Number($('playerCount').value), courts = Number($('courts').value), rounds = Number($('rounds').value);
+    if (!Number.isInteger(count) || count < 4 || count > 40 || !Number.isInteger(courts) || courts < 1 || courts > 4 || !Number.isInteger(rounds) || rounds < 1) return;
+    const players = readPlayers();
+    if (players.length !== count) return;
+    storageWrite(savedSetupKey, { count, courts, rounds, players, order: state.priorityOrder });
+  }
+  function saveSchedule() {
+    const result = state.schedule;
+    if (!result) return;
+    const data = { version:1, players:state.players, settings:state.settings, completed:state.completed,
+      result:{ ...result, plays:[...result.plays], partnerCounts:[...result.partnerCounts], opponentCounts:[...result.opponentCounts] } };
+    if (storageWrite(savedScheduleKey, data)) {
+      $('saveStatus').textContent = '설정과 대진표가 이 브라우저에 저장되었습니다.';
+      $('loadSchedule').classList.remove('hidden');
+    }
+  }
+  function restoreSetup(data) {
+    if (!data || !Number.isInteger(data.count) || data.count < 4 || data.count > 40 || !Array.isArray(data.players)) return;
+    $('playerCount').value = data.count; $('courts').value = data.courts;
+    syncPlayerFields();
+    [...document.querySelectorAll('[data-player-name]')].forEach((input, i) => { input.value = data.players[i] ?? ''; });
+    if (Number.isInteger(data.rounds) && data.rounds > 0) $('rounds').value = data.rounds;
+    if (Array.isArray(data.order)) {
+      state.priorityOrder = [...new Set(data.order.filter(key => priorityConfig.some(item => item.key === key)))];
+      priorityConfig.forEach(item => { $(item.checkbox).checked = state.priorityOrder.includes(item.key); });
+      syncPriorityControls();
+    }
+  }
+  function loadSchedule(scroll = true) {
+    const data = storageRead(savedScheduleKey);
+    try {
+      if (!data || data.version !== 1 || !Array.isArray(data.players) || !data.settings || !Array.isArray(data.result.rounds) || !data.result.rounds.length || !Array.isArray(data.completed) || data.completed.length !== data.result.rounds.length) throw new Error('invalid');
+      const result = { ...data.result, plays:new Map(data.result.plays), partnerCounts:new Map(data.result.partnerCounts), opponentCounts:new Map(data.result.opponentCounts) };
+      restoreSetup({ count:data.players.length, courts:data.settings.courts, rounds:data.settings.rounds, players:data.players, order:priorityConfig.filter(item => data.settings[item.key]).sort((a,b) => data.settings.priorities[a.key] - data.settings.priorities[b.key]).map(item => item.key) });
+      state.completed = data.completed.map(Boolean);
+      render(result, data.players, data.settings, scroll);
+      $('loadSchedule').classList.remove('hidden');
+      $('saveStatus').textContent = '저장된 대진표와 진행 상태를 불러왔습니다.';
+    } catch { $('saveStatus').textContent = '저장된 대진표를 불러올 수 없습니다.'; }
+  }
+  function render(result, players, settings, scroll = true) {
     $('scheduleTitle').textContent = '🏸 배드민턴 경기 대진표';
     const games = result.rounds[0].games.length;
     const avg = (settings.rounds*result.plan.slots/players.length).toFixed(1).replace('.0','');
@@ -520,6 +572,22 @@
     result.rounds.forEach((round, ri) => {
       const tr = document.createElement('tr');
       const roundCell = document.createElement('td'); roundCell.className = 'round'; roundCell.textContent = `${ri + 1}R`;
+      const completeButton = document.createElement('button');
+      completeButton.type = 'button'; completeButton.className = 'round-complete no-print';
+      completeButton.textContent = state.completed[ri] ? '완료 취소' : '완료';
+      completeButton.setAttribute('aria-label', `${ri + 1}라운드 ${state.completed[ri] ? '완료 취소' : '완료'}`);
+      completeButton.setAttribute('aria-pressed', String(!!state.completed[ri]));
+      completeButton.addEventListener('click', () => {
+        state.completed[ri] = !state.completed[ri];
+        const done = state.completed[ri];
+        completeButton.textContent = done ? '완료 취소' : '완료';
+        completeButton.setAttribute('aria-label', `${ri + 1}라운드 ${done ? '완료 취소' : '완료'}`);
+        completeButton.setAttribute('aria-pressed', String(done));
+        tr.classList.toggle('round-done', done);
+        $('roundProgress').textContent = `완료 ${state.completed.filter(Boolean).length} / ${result.rounds.length}라운드`;
+        saveSchedule();
+      });
+      tr.classList.toggle('round-done', !!state.completed[ri]); roundCell.append(completeButton);
       if (games > 1 && round.resting.length) { const rest = document.createElement('small'); rest.className = 'round-rest'; rest.textContent = `휴식: ${round.resting.join(', ')}`; roundCell.append(rest); }
       tr.append(roundCell);
       round.games.forEach((game, gi) => {
@@ -546,7 +614,9 @@
     if (settings.noRest && players.length>result.plan.slots && players.some(p=>maxStreak(result.history,p,true)>=2)) warnings.push('인원·라운드 조건상 일부 연속 휴식이 발생했습니다.');
     if (settings.equal && !equal) warnings.push('출전 횟수 차이가 1회를 초과했습니다. 라운드를 늘리거나 조건을 조정해 주세요.');
     const report=$('constraintReport'); const doublesUnavailable=result.plan.doubles<settings.courts; report.className=`report ${warnings.length?'warning':''}${doublesUnavailable?' singles-warning':''}`; report.textContent=warnings.length ? `${doublesUnavailable ? '' : '확인 필요: '}${warnings.join(' ')}` : '검증 완료: 출전 횟수는 균등하게 배분되었고, 적용 가능한 연속 출전 조건을 확인했습니다.';
-    state.schedule=result; state.settings=settings; $('results').classList.remove('hidden'); $('results').scrollIntoView({behavior:'smooth',block:'start'});
+    state.schedule=result; state.settings=settings; state.players=players;
+    $('roundProgress').textContent = `완료 ${state.completed.filter(Boolean).length} / ${result.rounds.length}라운드`;
+    $('results').classList.remove('hidden'); if (scroll) $('results').scrollIntoView({behavior:'smooth',block:'start'});
   }
   function generate() {
     const players=readPlayers(), validation=validateNames(players), notice=$('nicknameNotice');
@@ -558,7 +628,10 @@
     notice.className='notice hidden'; notice.textContent='';
     const equalRounds = equalRotationRounds(players.length, courts), plan = courtPlan(players.length, courts);
     const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,noRest:$('noConsecutiveRest').checked,rotate:$('rotatePartners').checked,priorities:{equal:Number($('priorityEqual').value),noThree:Number($('priorityNoThree').value),noRest:Number($('priorityNoRest').value),rotate:Number($('priorityRotate').value)},repeatRestCycle:players.length===5&&plan.doubles===1&&plan.singles===0&&rounds>=equalRounds*2&&rounds%equalRounds===0,repeatCycleRounds:equalRounds};
-    render(buildSchedule(players,courts,rounds,settings),players,settings);
+    if (storageRead(savedScheduleKey) && !window.confirm('새 대진표를 만들면 저장된 대진표와 완료 기록이 새 대진표로 바뀝니다. 계속할까요?')) return;
+    const result = buildSchedule(players,courts,rounds,settings);
+    state.completed = result.rounds.map(() => false);
+    render(result,players,settings); saveSetup(); saveSchedule();
   }
   function scheduleText() {
     const s = state.schedule, set = state.settings;
@@ -598,6 +671,12 @@
   });
   syncPriorityControls();
   syncPlayerFields();
+  const savedSetup = storageRead(savedSetupKey);
+  if (storageRead(savedScheduleKey)) loadSchedule(false);
+  restoreSetup(savedSetup);
+  document.querySelector('.setup-panel').addEventListener('change', saveSetup);
+  document.querySelector('.setup-panel').addEventListener('input', saveSetup);
+  $('loadSchedule').addEventListener('click', () => { loadSchedule(); saveSetup(); });
   $('generate').addEventListener('click',generate);
   $('imageBtn').addEventListener('click',downloadImage);
   $('copyBtn').addEventListener('click',async e=>{try{await navigator.clipboard.writeText(scheduleText());e.currentTarget.textContent='복사 완료';setTimeout(()=>e.currentTarget.textContent='텍스트 복사',1500)}catch{window.prompt('아래 내용을 복사해 주세요.',scheduleText())}});

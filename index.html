@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20261030-mobile-names-size">
 </head>
 <body>
 <div class="app-shell">
@@ -113,6 +113,8 @@
 <span>대진표 만들기</span>
 <b>→</b>
 </button>
+<p id="saveStatus" class="save-status" aria-live="polite">설정과 대진표는 이 브라우저에 저장됩니다.</p>
+<button id="loadSchedule" class="secondary hidden" type="button">저장된 대진표 불러오기</button>
 </section>
 <section id="results" class="results hidden" aria-live="polite">
   <!-- 이미지 저장 시 제목·대진표만 캡처하고, 검증표는 제외합니다. -->
@@ -137,6 +139,7 @@
       <span class="team-b-dot">팀 B</span>
       <span class="rest-dot">휴식 · 대기</span>
     </div>
+    <p id="roundProgress" class="round-progress no-print" aria-live="polite"></p>
     <div class="table-shell">
       <table id="scheduleTable">
         <thead>
@@ -191,7 +194,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js">
 </script>
-<script src="app.js?v=20261030-rest-rotation">
+<script src="app.js?v=20261030-round-progress">
 </script>
 </body>
 </html>

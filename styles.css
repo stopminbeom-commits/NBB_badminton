@@ -120,7 +120,8 @@ footer{padding:0 0 30px;color:#64748b;font-size:12px}
 .verification .table-shell td:nth-child(4):before{content:'연속 출전'}
 .verification .table-shell td:nth-child(5):before{content:'연속 휴식'}
 .verification .table-shell td:nth-child(6):before{content:'파트너 수'}
-.verification .table-shell td:nth-child(7):before{content:'상태'}
+.verification .table-shell td:nth-child(7):before{content:'상대 수'}
+.verification .table-shell td:nth-child(8):before{content:'상태'}
 }
 @media print{body{background:#fff;font-size:10px}
 .no-print,.site-header,footer,.hero{display:none!important}
@@ -145,4 +146,16 @@ th,td{padding:5px 6px}
 .constraint-option:has(input:checked){border-color:#86efac;background:#ecfdf5;color:#047857;box-shadow:0 4px 12px #10b9811f}
 .constraint-option select{height:31px;padding:0 7px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;font:inherit;font-size:12px;font-weight:800}
 .constraint-option input:not(:checked)~select{opacity:.55;cursor:not-allowed}
+.save-status,.round-progress{color:#64748b;font-size:12px;margin:12px 0}
+.round-complete{display:block;margin:7px auto 0;padding:5px 9px;border:1px solid #b9d6c8;border-radius:8px;background:#fff;color:#047857;font:inherit;font-size:11px;cursor:pointer}
+.schedule-capture:not(.capture-image) #scheduleTable.single-court-card-grid td.round{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-inline:clamp(12px,10%,22px)}
+.schedule-capture:not(.capture-image) #scheduleTable.single-court-card-grid td.round .round-complete{display:inline-block;flex-shrink:0;margin:0}
+.round-complete[aria-pressed="true"]{border-color:#cbd5e1;background:#e2e8f0;color:#475569}
+#scheduleTable tr.round-done{filter:grayscale(1);opacity:.65}
+.capture-image .round-complete{display:none!important}
+@media(max-width:700px){
+  .schedule-capture:not(.capture-image) #scheduleTable.single-court-card-grid td.court-match.only-court{min-height:68px;padding:14px 6px}
+  .schedule-capture:not(.capture-image) #scheduleTable.single-court-card-grid .player-name{font-size:13px}
+  .schedule-capture:not(.capture-image) #scheduleTable.single-court-card-grid td.single-rest{font-size:11px}
+}
 @media(max-width:700px){.constraint-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.constraint-option{min-height:46px;gap:6px;padding:7px 8px;font-size:12px}.constraint-option select{padding:0 4px;font-size:11px}}
