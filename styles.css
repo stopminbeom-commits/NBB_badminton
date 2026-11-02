@@ -140,6 +140,12 @@ th,td{padding:5px 6px}
 .footnote{font-size:8px}
 }
 .constraint-help{margin:0 0 10px;color:var(--muted);font-size:12px;font-weight:500}
+.court-formats{min-width:0;margin:0;padding:0;border:0}
+.court-formats legend{margin-bottom:8px;color:var(--navy);font-weight:900}
+.court-format-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:8px}
+.court-format{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border:1px solid #d8e2e9;border-radius:12px;font-size:13px;font-weight:800}
+.court-format select{min-width:0;padding:7px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;font:inherit}
+#courtPlanHint.invalid{color:#be123c;font-weight:800}
 .constraint-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;width:100%}
 .constraint-option{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;min-height:48px;padding:7px 9px 7px 11px;border:1px solid #d8e2e9;border-radius:13px;background:#fff;cursor:pointer;color:var(--muted);font-size:13px;font-weight:800;transition:.18s}
 .constraint-option input{width:16px;height:16px;margin:0;accent-color:var(--green)}
@@ -152,6 +158,11 @@ th,td{padding:5px 6px}
 .schedule-capture:not(.capture-image) #scheduleTable.single-court-card-grid td.round .round-complete{display:inline-block;flex-shrink:0;margin:0}
 .round-complete[aria-pressed="true"]{border-color:#cbd5e1;background:#e2e8f0;color:#475569}
 #scheduleTable tr.round-done{filter:grayscale(1);opacity:.65}
+#scheduleTable td.court-done{filter:grayscale(1);opacity:.65}
+#scheduleTable tr.round-done td.court-done{filter:none;opacity:1}
+#scheduleTable td.all-courts-done{color:#94a3b8}
+#scheduleTable .court-complete{display:block;margin:8px auto 0}
+@media(max-width:700px){.schedule-capture:not(.capture-image) #scheduleTable.matrix-schedule td.court-match .court-complete{grid-column:1/-1;justify-self:end;margin:6px 0 0}}
 .capture-image .round-complete{display:none!important}
 .confirm-dialog{width:min(420px,calc(100% - 32px));padding:24px;border:1px solid #dbe5ed;border-radius:18px;color:var(--ink);box-shadow:0 18px 50px #0f172a33}
 .confirm-dialog::backdrop{background:#0f172a80}

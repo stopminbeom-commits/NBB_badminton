@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261030-confirm-dialog">
+<link rel="stylesheet" href="styles.css?v=20261102-round-complete">
 </head>
 <body>
 <div class="app-shell">
@@ -46,6 +46,17 @@
 <small>1~4코트 · 동시 경기 기준</small>
 <input id="courts" type="number" min="1" max="4" value="1">
 </label>
+<fieldset id="courtFormats" class="court-formats field-wide hidden">
+<legend>코트 구성</legend>
+<p class="constraint-help">각 코트에서 진행할 경기 방식을 선택해 주세요.</p>
+<div class="court-format-list">
+<label class="court-format" data-court-index="0"><span>1코트</span><select id="courtFormat0" aria-label="1코트 경기 방식"><option value="doubles">복식 (4명)</option><option value="singles">단식 (2명)</option></select></label>
+<label class="court-format" data-court-index="1"><span>2코트</span><select id="courtFormat1" aria-label="2코트 경기 방식"><option value="doubles">복식 (4명)</option><option value="singles">단식 (2명)</option></select></label>
+<label class="court-format" data-court-index="2"><span>3코트</span><select id="courtFormat2" aria-label="3코트 경기 방식"><option value="doubles">복식 (4명)</option><option value="singles">단식 (2명)</option></select></label>
+<label class="court-format" data-court-index="3"><span>4코트</span><select id="courtFormat3" aria-label="4코트 경기 방식"><option value="doubles">복식 (4명)</option><option value="singles">단식 (2명)</option></select></label>
+</div>
+<p id="courtPlanHint" class="constraint-help" aria-live="polite"></p>
+</fieldset>
 <label class="field field-wide">
 <span>진행 라운드</span>
 <small id="roundRecommendation">
@@ -204,7 +215,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js">
 </script>
-<script src="app.js?v=20261030-confirm-dialog">
+<script src="app.js?v=20261102-round-complete">
 </script>
 </body>
 </html>

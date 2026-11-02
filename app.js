@@ -64,41 +64,58 @@
     const value = Number($('courts').value);
     return Math.max(1, Math.min(4, Number.isInteger(value) ? value : 1));
   }
-  function courtPlan(count, courts) {
-    const doubles = Math.min(courts, Math.floor(count / 4));
-    const remaining = count - doubles * 4;
-    const singles = remaining >= 2 && doubles < courts ? 1 : 0;
-    return { doubles, singles, courtsUsed: doubles + singles, slots: doubles * 4 + singles * 2 };
+  function selectedCourtFormats(courts = courtCount()) {
+    return courts === 1 ? ['doubles'] : Array.from({length:courts}, (_, i) => $(`courtFormat${i}`).value === 'singles' ? 'singles' : 'doubles');
+  }
+  function courtPlan(count, courts, formats = selectedCourtFormats(courts)) {
+    const doubles = formats.filter(type => type === 'doubles').length;
+    const singles = formats.filter(type => type === 'singles').length;
+    return { doubles, singles, courtsUsed:formats.length, slots:doubles * 4 + singles * 2, formats };
+  }
+  function syncCourtFormats() {
+    const courts = courtCount();
+    $('courtFormats').classList.toggle('hidden', courts < 2);
+    for (let i = 0; i < 4; i++) document.querySelector(`[data-court-index="${i}"]`).classList.toggle('hidden', i >= courts);
   }
   function recommendedRounds(count = participantCount(), courts = courtCount()) {
     const plan = courtPlan(count, courts);
-    return Math.min(60, Math.ceil((count * (count - 1)) / plan.slots));
+    return plan.doubles ? Math.ceil((count * (count - 1)) / (4 * plan.doubles)) : null;
   }
   function gcd(a, b) {
     while (b) [a, b] = [b, a % b];
     return a;
   }
-  function equalRotationRounds(count = participantCount(), courts = courtCount()) {
-    const slots = courtPlan(count, courts).slots;
+  function equalRotationRounds(count = participantCount(), courts = courtCount(), formats = selectedCourtFormats(courts)) {
+    const slots = courtPlan(count, courts, formats).slots;
     return slots ? Math.min(60, count / gcd(count, slots)) : 1;
   }
-  function updateRoundRecommendation() {
+  function updateRoundRecommendation(preserveRounds = false) {
     const count = participantCount(), courts = courtCount();
+    const plan = courtPlan(count, courts);
     const partnerRounds = recommendedRounds(count, courts), equalRounds = equalRotationRounds(count, courts);
     const rounds = count * (count * 3 <= 15 ? 3 : 2);
     $('playerCount').value = count;
     $('courts').value = courts;
-    $('rounds').value = rounds;
+    if (preserveRounds !== true) $('rounds').value = rounds;
     $('playerCountHint').textContent = `총 ${count}명`;
     const recommendation = $('roundRecommendation');
     const firstLine = document.createElement('span'), secondLine = document.createElement('span');
-    firstLine.textContent = `파트너 순환 최소 ${partnerRounds}라운드 · 균등 출전/휴식 최소 주기 ${equalRounds}라운드`;
+    firstLine.textContent = `${partnerRounds === null ? '단식만 선택: 파트너 순환 없음' : `파트너 순환 이론상 최소 ${partnerRounds}라운드`} · 균등 출전/휴식 최소 주기 ${equalRounds}라운드`;
     secondLine.textContent = '최소 주기 2~3회 진행 권장';
     recommendation.replaceChildren(firstLine, secondLine);
+    syncCourtFormats();
+    const valid = plan.slots <= count, hint = $('courtPlanHint');
+    hint.classList.toggle('invalid', !valid);
+    hint.textContent = valid ? `라운드당 ${plan.slots}명 출전 · ${count - plan.slots}명 휴식` : `선택한 코트 구성에 ${plan.slots}명이 필요합니다. 참가 인원보다 ${plan.slots - count}명 많습니다.`;
+    const selectedRounds = Number($('rounds').value);
+    if (valid && Number.isInteger(selectedRounds) && selectedRounds > 0 && plan.slots * selectedRounds > count * (selectedRounds - Math.floor(selectedRounds / 3))) {
+      hint.textContent += ' · 이 라운드 수에서는 3연속 출전을 모두 피할 수 없습니다.';
+    }
   }
   function syncPlayerFields() {
     const current = [...document.querySelectorAll('[data-player-name]')].map(input => input.value);
     const count = participantCount(), fields = $('playerFields');
+    const occupied = new Set(current.map(name => name.trim().toLocaleLowerCase()));
     fields.replaceChildren();
     fields.style.setProperty('--player-columns', count === 5 || count % 3 === 0 ? 3 : 4);
     for (let i = 0; i < count; i++) {
@@ -106,7 +123,9 @@
       label.className = 'nickname-field';
       inputWrap.className = 'nickname-input-wrap'; inputLabel.className = 'nickname-input-label'; inputLabel.textContent = '닉네임';
       input.type = 'text'; input.maxLength = 24; input.placeholder = '닉네임 입력'; input.dataset.playerName = 'true';
-      input.value = current[i] ?? initialNames[i] ?? '';
+      const suggested = initialNames[i] && !occupied.has(initialNames[i].toLocaleLowerCase()) ? initialNames[i] : initialNames.find(name => !occupied.has(name.toLocaleLowerCase()));
+      input.value = current[i] ?? suggested ?? '';
+      if (current[i] === undefined && input.value) occupied.add(input.value.toLocaleLowerCase());
       inputWrap.append(inputLabel, input); label.append(inputWrap); fields.append(label);
     }
     applyRecommendedPriorities(count);
@@ -242,7 +261,7 @@
     }
     return best;
   }
-  function makeRound(selected, doubleCourts, singleCourts, partnerCounts, opponentCounts, rotate, avoidedPairings = null, previousPartnerPairs = null) {
+  function makeRound(selected, doubleCourts, singleCourts, partnerCounts, opponentCounts, rotate, avoidedPairings = null, previousPartnerPairs = null, singlesPlays = new Map()) {
     let best = null, bestCost = Infinity;
     const patterns = [[0,1,2,3],[0,2,1,3],[0,3,1,2]];
     for (let trial = 0; trial < 70; trial++) {
@@ -263,7 +282,9 @@
       for (let g = 0; g < singleCourts; g++) { const [a,b] = order.slice(doubleCourts * 4 + g * 2, doubleCourts * 4 + g * 2 + 2); games.push({ type:'singles', teamA:[a], teamB:[b] }); }
       const doubles = games.filter(g => g.type === 'doubles');
       const adjacentPenalty = previousPartnerPairs ? doubles.reduce((sum, game) => sum + [...partnerPairSet(game)].filter(pair => previousPartnerPairs.has(pair)).length * 100000000, 0) : 0;
-      const cost = doubles.reduce((sum,g) => sum + (rotate ? 8*(count(partnerCounts,...g.teamA)+count(partnerCounts,...g.teamB)) + g.teamA.reduce((s,a)=>s+g.teamB.reduce((t,b)=>t+count(opponentCounts,a,b),0),0) : 0), 0) + (avoidedPairings && doubles[0] && avoidedPairings.has(doublesPairingKey(doubles[0])) ? 100000 : 0) + adjacentPenalty;
+      const singles = games.filter(g => g.type === 'singles');
+      const singlesCost = singles.reduce((sum, g) => sum + (singlesPlays.get(g.teamA[0]) || 0) * 20 + (singlesPlays.get(g.teamB[0]) || 0) * 20 + (rotate ? count(opponentCounts, g.teamA[0], g.teamB[0]) : 0), 0);
+      const cost = doubles.reduce((sum,g) => sum + (rotate ? 8*(count(partnerCounts,...g.teamA)+count(partnerCounts,...g.teamB)) + g.teamA.reduce((s,a)=>s+g.teamB.reduce((t,b)=>t+count(opponentCounts,a,b),0),0) : 0), 0) + singlesCost + (avoidedPairings && doubles[0] && avoidedPairings.has(doublesPairingKey(doubles[0])) ? 100000 : 0) + adjacentPenalty;
       if (cost < bestCost) { bestCost = cost; best = games; }
     }
     return best;
@@ -420,10 +441,10 @@
     return { rounds:roundsOut, plays, history, partnerCounts, opponentCounts, plan:{ doubles:1, singles:0, courtsUsed:1, slots:4 } };
   }
   function generateOnce(players, courts, rounds, opts) {
-    const plan = courtPlan(players.length, courts);
+    const plan = courtPlan(players.length, courts, opts.courtFormats);
     if (players.length === 8 && plan.doubles === 1 && plan.singles === 0 && opts.rotate && rounds >= 14) return generateEightPlayerRotation(players, rounds, opts);
     const slots = plan.slots, plays = new Map(players.map(p => [p, 0]));
-    const partnerCounts = new Map(), opponentCounts = new Map(), history = [], roundsOut = [];
+    const partnerCounts = new Map(), opponentCounts = new Map(), singlesPlays = new Map(), history = [], roundsOut = [];
     const selectionCycle = opts.repeatRestCycle
       ? buildBalancedCycle(players, slots, opts.repeatCycleRounds, opts)
       : null;
@@ -438,9 +459,12 @@
         : choosePlayers(players, slots, history, plays, opts, partnerCounts, opponentCounts);
       const key = selectionCycle ? selectionKey(selected) : null;
       const previousPartnerPairs = roundsOut.length ? gamesPartnerPairSet(roundsOut[roundsOut.length - 1].games) : null;
-      const games = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate, key ? usedPairingsBySelection.get(key) : null, previousPartnerPairs);
+      const generatedGames = makeRound(selected, plan.doubles, plan.singles, partnerCounts, opponentCounts, opts.rotate, key ? usedPairingsBySelection.get(key) : null, previousPartnerPairs, singlesPlays);
+      const remainingGames = [...generatedGames];
+      const games = plan.formats.map(type => remainingGames.splice(remainingGames.findIndex(game => game.type === type), 1)[0]);
       for (const game of games) {
         addGameCounts(game, partnerCounts, opponentCounts);
+        if (game.type === 'singles') for (const player of [...game.teamA, ...game.teamB]) singlesPlays.set(player, (singlesPlays.get(player) || 0) + 1);
       }
       selected.forEach(p => plays.set(p, plays.get(p)+1));
       if (key && games[0]?.type === 'doubles') {
@@ -477,7 +501,7 @@
     ], opts) + Math.random();
   }
   function buildSchedule(players, courts, rounds, opts) {
-    const plan = courtPlan(players.length, courts);
+    const plan = courtPlan(players.length, courts, opts.courtFormats);
     if (players.length === 8 && plan.doubles === 1 && plan.singles === 0 && opts.rotate && rounds >= 14) return generateOnce(players, courts, rounds, opts);
     if (opts.repeatRestCycle) return generateOnce(players, courts, rounds, opts);
     let best;
@@ -517,12 +541,12 @@
     if (!Number.isInteger(count) || count < 4 || count > 40 || !Number.isInteger(courts) || courts < 1 || courts > 4 || !Number.isInteger(rounds) || rounds < 1) return;
     const players = readPlayers();
     if (players.length !== count) return;
-    storageWrite(savedSetupKey, { count, courts, rounds, players, order: state.priorityOrder });
+    storageWrite(savedSetupKey, { count, courts, rounds, players, order: state.priorityOrder, courtFormats:selectedCourtFormats(courts) });
   }
   function saveSchedule() {
     const result = state.schedule;
     if (!result) return;
-    const data = { version:1, players:state.players, settings:state.settings, completed:state.completed,
+    const data = { version:2, players:state.players, settings:state.settings, completed:state.completed,
       result:{ ...result, plays:[...result.plays], partnerCounts:[...result.partnerCounts], opponentCounts:[...result.opponentCounts] } };
     if (storageWrite(savedScheduleKey, data)) {
       $('saveStatus').textContent = '설정과 대진표가 이 브라우저에 저장되었습니다.';
@@ -532,6 +556,7 @@
   function restoreSetup(data) {
     if (!data || !Number.isInteger(data.count) || data.count < 4 || data.count > 40 || !Array.isArray(data.players)) return;
     $('playerCount').value = data.count; $('courts').value = data.courts;
+    for (let i = 0; i < 4; i++) $(`courtFormat${i}`).value = data.courtFormats?.[i] === 'singles' ? 'singles' : 'doubles';
     syncPlayerFields();
     [...document.querySelectorAll('[data-player-name]')].forEach((input, i) => { input.value = data.players[i] ?? ''; });
     if (Number.isInteger(data.rounds) && data.rounds > 0) $('rounds').value = data.rounds;
@@ -544,10 +569,17 @@
   function loadSchedule(scroll = true) {
     const data = storageRead(savedScheduleKey);
     try {
-      if (!data || data.version !== 1 || !Array.isArray(data.players) || !data.settings || !Array.isArray(data.result.rounds) || !data.result.rounds.length || !Array.isArray(data.completed) || data.completed.length !== data.result.rounds.length) throw new Error('invalid');
+      if (!data || ![1,2].includes(data.version) || !Array.isArray(data.players) || !data.settings || !Array.isArray(data.result.rounds) || !data.result.rounds.length || !Array.isArray(data.completed) || data.completed.length !== data.result.rounds.length) throw new Error('invalid');
+      const completion = data.result.rounds.map((round, ri) => {
+        if (!Array.isArray(round.games) || !round.games.length) throw new Error('invalid');
+        const value = data.completed[ri];
+        if (data.version === 1 && typeof value === 'boolean') return round.games.map(() => value);
+        if (data.version === 2 && Array.isArray(value) && value.length === round.games.length && value.every(item => typeof item === 'boolean')) return value.slice();
+        throw new Error('invalid');
+      });
       const result = { ...data.result, plays:new Map(data.result.plays), partnerCounts:new Map(data.result.partnerCounts), opponentCounts:new Map(data.result.opponentCounts) };
-      restoreSetup({ count:data.players.length, courts:data.settings.courts, rounds:data.settings.rounds, players:data.players, order:priorityConfig.filter(item => data.settings[item.key]).sort((a,b) => data.settings.priorities[a.key] - data.settings.priorities[b.key]).map(item => item.key) });
-      state.completed = data.completed.map(Boolean);
+      restoreSetup({ count:data.players.length, courts:data.settings.courts, rounds:data.settings.rounds, players:data.players, courtFormats:data.settings.courtFormats || data.result.rounds[0].games.map(game => game.type), order:priorityConfig.filter(item => data.settings[item.key]).sort((a,b) => data.settings.priorities[a.key] - data.settings.priorities[b.key]).map(item => item.key) });
+      state.completed = completion;
       render(result, data.players, data.settings, scroll);
       $('loadSchedule').classList.remove('hidden');
       $('saveStatus').textContent = '저장된 대진표와 진행 상태를 불러왔습니다.';
@@ -565,36 +597,37 @@
     scheduleTable.classList.add('matrix-schedule');
     if (games === 1) scheduleTable.classList.add('single-court-card-grid');
     const header = scheduleTable.querySelector('thead tr'); header.replaceChildren();
-    const courtLabels = result.rounds[0].games.map((game, index) => `${index + 1}코트${game.type === 'singles' ? ' · 단식' : ''}`);
+    const courtLabels = result.rounds[0].games.map((game, index) => `${index + 1}코트 · ${game.type === 'singles' ? '단식' : '복식'}`);
     const headerLabels = games === 1 ? ['라운드', '대진', '휴식 / 대기'] : ['라운드', ...courtLabels];
     headerLabels.forEach(label => { const th = document.createElement('th'); th.textContent = label; header.append(th); });
     const tbody = scheduleTable.querySelector('tbody'); tbody.replaceChildren();
     result.rounds.forEach((round, ri) => {
       const tr = document.createElement('tr');
       const roundCell = document.createElement('td'); roundCell.className = 'round'; roundCell.textContent = `${ri + 1}R`;
-      const completeButton = document.createElement('button');
-      completeButton.type = 'button'; completeButton.className = 'round-complete no-print';
-      completeButton.textContent = state.completed[ri] ? '완료 취소' : '완료';
-      completeButton.setAttribute('aria-label', `${ri + 1}라운드 ${state.completed[ri] ? '완료 취소' : '완료'}`);
-      completeButton.setAttribute('aria-pressed', String(!!state.completed[ri]));
-      completeButton.addEventListener('click', () => {
-        state.completed[ri] = !state.completed[ri];
-        const done = state.completed[ri];
-        completeButton.textContent = done ? '완료 취소' : '완료';
-        completeButton.setAttribute('aria-label', `${ri + 1}라운드 ${done ? '완료 취소' : '완료'}`);
-        completeButton.setAttribute('aria-pressed', String(done));
-        tr.classList.toggle('round-done', done);
-        $('roundProgress').textContent = `완료 ${state.completed.filter(Boolean).length} / ${result.rounds.length}라운드`;
-        saveSchedule();
-      });
-      tr.classList.toggle('round-done', !!state.completed[ri]); roundCell.append(completeButton);
       if (games > 1 && round.resting.length) { const rest = document.createElement('small'); rest.className = 'round-rest'; rest.textContent = `휴식: ${round.resting.join(', ')}`; roundCell.append(rest); }
       tr.append(roundCell);
       round.games.forEach((game, gi) => {
         const cell = document.createElement('td'), versus = document.createElement('span');
-        cell.className = `court-match${games === 1 ? ' only-court' : ''}`; cell.dataset.court = `${gi + 1}코트${game.type === 'singles' ? ' · 단식' : ''}`;
+        cell.className = `court-match${games === 1 ? ' only-court' : ''}`; cell.dataset.court = `${gi + 1}코트 · ${game.type === 'singles' ? '단식' : '복식'}`;
         versus.className = 'match-vs'; versus.textContent = 'vs';
-        cell.append(teamCard(game.teamA, 'a'), versus, teamCard(game.teamB, 'b')); tr.append(cell);
+        cell.append(teamCard(game.teamA, 'a'), versus, teamCard(game.teamB, 'b'));
+        const completeButton = document.createElement('button');
+        completeButton.type = 'button'; completeButton.className = `round-complete no-print${games > 1 ? ' court-complete' : ''}`;
+        const updateCompletion = () => {
+          const done = state.completed[ri][gi];
+          completeButton.textContent = done ? '완료 취소' : '완료';
+          completeButton.setAttribute('aria-label', `${ri + 1}라운드${games > 1 ? ` ${gi + 1}코트` : ''} ${done ? '완료 취소' : '완료'}`);
+          completeButton.setAttribute('aria-pressed', String(done));
+          if (games > 1) cell.classList.toggle('court-done', done);
+          const allDone = state.completed[ri].every(Boolean);
+          tr.classList.toggle('round-done', allDone);
+          roundCell.classList.toggle('all-courts-done', games > 1 && allDone);
+        };
+        completeButton.addEventListener('click', () => {
+          state.completed[ri][gi] = !state.completed[ri][gi];
+          updateCompletion(); updateProgress(); saveSchedule();
+        });
+        updateCompletion(); (games === 1 ? roundCell : cell).append(completeButton); tr.append(cell);
       });
       if (games === 1) { const restCell = document.createElement('td'); restCell.className = 'single-rest'; restCell.textContent = round.resting.join(', ') || '대기자 없음'; tr.append(restCell); }
       tbody.append(tr);
@@ -603,7 +636,7 @@
     const playValues=players.map(p=>result.plays.get(p)); const equal = Math.max(...playValues)-Math.min(...playValues)<=1;
     players.forEach(p => { const streak=maxStreak(result.history,p), restStreak=maxStreak(result.history,p,true), partners=[...result.partnerCounts.keys()].filter(k=>k.split('|').includes(p)).length, opponents=[...result.opponentCounts.keys()].filter(k=>k.split('|').includes(p)).length; const issue=settings.noThree&&streak>2 ? '3연속 출전' : settings.noRest&&restStreak>1 ? '연속 휴식' : ''; const tr=document.createElement('tr'); [[p,''],[`${result.plays.get(p)}회`,''],[`${settings.rounds - result.plays.get(p)}회`,''],[`${streak}회`,streak<=2?'':'status-alert'],[`${restStreak}회`,restStreak<=1?'':'status-alert'],[`${partners}명`,''],[`${opponents}명`,''],[issue||'정상',issue?'status-alert':'status-ok']].forEach(([t,c])=>{const td=document.createElement('td');td.textContent=t;td.className=c;tr.append(td)});verify.append(tr); });
     const warnings=[];
-    if (result.plan.doubles < settings.courts) {
+    if (result.plan.courtsUsed < settings.courts) {
       const setup = result.plan.singles
         ? `${result.plan.doubles}복식 + ${result.plan.singles}단식으로 편성했습니다.`
         : `${result.plan.doubles}코트만 복식으로 편성할 수 있어 남은 인원은 대기합니다.`;
@@ -613,10 +646,16 @@
     if (settings.noThree && players.length>result.plan.slots && players.some(p=>maxStreak(result.history,p)>=3)) warnings.push('인원·라운드 조건상 일부 3연속 출전이 발생했습니다.');
     if (settings.noRest && players.length>result.plan.slots && players.some(p=>maxStreak(result.history,p,true)>=2)) warnings.push('인원·라운드 조건상 일부 연속 휴식이 발생했습니다.');
     if (settings.equal && !equal) warnings.push('출전 횟수 차이가 1회를 초과했습니다. 라운드를 늘리거나 조건을 조정해 주세요.');
-    const report=$('constraintReport'); const doublesUnavailable=result.plan.doubles<settings.courts; report.className=`report ${warnings.length?'warning':''}${doublesUnavailable?' singles-warning':''}`; report.textContent=warnings.length ? `${doublesUnavailable ? '' : '확인 필요: '}${warnings.join(' ')}` : '검증 완료: 출전 횟수는 균등하게 배분되었고, 적용 가능한 연속 출전 조건을 확인했습니다.';
+    const report=$('constraintReport'); const doublesUnavailable=result.plan.courtsUsed<settings.courts; report.className=`report ${warnings.length?'warning':''}${doublesUnavailable?' singles-warning':''}`; report.textContent=warnings.length ? `${doublesUnavailable ? '' : '확인 필요: '}${warnings.join(' ')}` : '검증 완료: 출전 횟수와 적용 가능한 연속 출전 조건을 확인했습니다.';
     state.schedule=result; state.settings=settings; state.players=players;
-    $('roundProgress').textContent = `완료 ${state.completed.filter(Boolean).length} / ${result.rounds.length}라운드`;
+    updateProgress();
     $('results').classList.remove('hidden'); if (scroll) $('results').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  function updateProgress() {
+    const completeRounds = state.completed.filter(courts => courts.every(Boolean)).length;
+    const totalCourts = state.completed.reduce((sum, courts) => sum + courts.length, 0);
+    const completeCourts = state.completed.reduce((sum, courts) => sum + courts.filter(Boolean).length, 0);
+    $('roundProgress').textContent = `완료 ${completeRounds} / ${state.completed.length}라운드${totalCourts > state.completed.length ? ` · 경기 ${completeCourts} / ${totalCourts}` : ''}`;
   }
   let pendingGeneration = null;
   function generate() {
@@ -627,11 +666,12 @@
     $('courts').value = courts;
     if (!Number.isInteger(rounds)||rounds<1) { notice.className='notice error';notice.textContent='라운드 수를 올바른 정수로 입력해 주세요.';return; }
     notice.className='notice hidden'; notice.textContent='';
-    const equalRounds = equalRotationRounds(players.length, courts), plan = courtPlan(players.length, courts);
-    const settings={courts,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,noRest:$('noConsecutiveRest').checked,rotate:$('rotatePartners').checked,priorities:{equal:Number($('priorityEqual').value),noThree:Number($('priorityNoThree').value),noRest:Number($('priorityNoRest').value),rotate:Number($('priorityRotate').value)},repeatRestCycle:players.length===5&&plan.doubles===1&&plan.singles===0&&rounds>=equalRounds*2&&rounds%equalRounds===0,repeatCycleRounds:equalRounds};
+    const courtFormats = selectedCourtFormats(courts), equalRounds = equalRotationRounds(players.length, courts, courtFormats), plan = courtPlan(players.length, courts, courtFormats);
+    if (plan.slots > players.length) { notice.className='notice error'; notice.textContent=`선택한 코트 구성에는 ${plan.slots}명이 필요합니다. 참가 인원이나 경기 방식을 확인해 주세요.`; return; }
+    const settings={courts,courtFormats,rounds,equal:$('equalPlay').checked,noThree:$('noThree').checked,noRest:$('noConsecutiveRest').checked,rotate:$('rotatePartners').checked,priorities:{equal:Number($('priorityEqual').value),noThree:Number($('priorityNoThree').value),noRest:Number($('priorityNoRest').value),rotate:Number($('priorityRotate').value)},repeatRestCycle:players.length===5&&plan.doubles===1&&plan.singles===0&&rounds>=equalRounds*2&&rounds%equalRounds===0,repeatCycleRounds:equalRounds};
     const create = () => {
       const result = buildSchedule(players,courts,rounds,settings);
-      state.completed = result.rounds.map(() => false);
+      state.completed = result.rounds.map(round => round.games.map(() => false));
       render(result,players,settings); saveSetup(); saveSchedule();
     };
     if (storageRead(savedScheduleKey)) {
@@ -672,6 +712,8 @@
   // 코트 수도 여러 자리 값을 입력하는 동안에는 즉시 보정하지 않습니다.
   $('courts').addEventListener('change',updateRoundRecommendation);
   $('courts').addEventListener('blur',updateRoundRecommendation);
+  for (let i = 0; i < 4; i++) $(`courtFormat${i}`).addEventListener('change', () => updateRoundRecommendation(true));
+  $('rounds').addEventListener('input', () => updateRoundRecommendation(true));
   priorityConfig.forEach(item => {
     $(item.checkbox).addEventListener('change', () => updatePriorityFromCheck(item.key));
     $(item.select).addEventListener('change', () => updatePriorityFromSelect(item.key));
